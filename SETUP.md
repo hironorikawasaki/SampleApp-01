@@ -22,17 +22,17 @@
 
 ## 2. データベースを作る（最重要・最初にやる）
 
-**Settings → SQL Editor** で、次の順に貼り付けて実行する。
+**Settings → SQL Editor** で、`supabase/` の**番号順**に貼り付けて実行する。
 
-1. `supabase/shift_app_schema.sql` … テーブル・型・RLS・トリガー一式
-2. `supabase/profiles_admin.sql` … プロフィール管理用のRLS追加＋権限昇格防止トリガー
-3. `supabase/promote_owner.sql` … 最初のオーナーを安全に作るための管理関数（手順7で使用）
-4. `supabase/push_subscriptions.sql` … Web Push の購読保存（手順9）
-5. `supabase/multi_store.sql` … 複数店舗対応（stores / store_members / 期間の店舗紐付け・RLS・既存データ移行）
+1. `supabase/0001_init_schema.sql` … テーブル・型・ビュー・RLS・トリガー一式
+2. `supabase/0002_profiles_admin.sql` … プロフィール管理用のRLS追加＋権限昇格防止トリガー
+3. `supabase/0003_multi_store.sql` … 複数店舗対応（stores / store_members / 期間の店舗紐付け・RLS・既存データ移行）
+4. `supabase/0004_push_subscriptions.sql` … Web Push の購読保存（手順9）
+5. `supabase/0005_promote_owner.sql` … 最初のオーナーを安全に作るための管理関数（手順7で使用）
 
-> 1 → 2 の順序が重要です（1 を先に流してから 2）。3〜5 は 1・2 の後ならいつでも可。
-> `multi_store.sql` は既存データを「本店」へ自動移行します。
-> SQL ファイルはすべて `supabase/` フォルダにあります。
+> すべて**冪等**（何度実行しても安全）。番号順に流せば依存関係も満たされます。
+> `0003` は既存データを「本店」へ自動移行します。適用状況は
+> `select * from schema_migrations;` で確認可。詳細は `supabase/README.md`。
 
 ## 3. 認証の設定
 
@@ -117,11 +117,13 @@ your-app/
 package.json / tsconfig.json / next.config.ts / postcss.config.mjs
 .gitignore / .env.local.example
 
-# DB用SQL（Supabase の SQL Editor で実行）
+# DB用SQL（Supabase の SQL Editor で番号順に実行。詳細は supabase/README.md）
 supabase/
-├─ shift_app_schema.sql
-├─ profiles_admin.sql
-└─ promote_owner.sql
+├─ 0001_init_schema.sql
+├─ 0002_profiles_admin.sql
+├─ 0003_multi_store.sql
+├─ 0004_push_subscriptions.sql
+└─ 0005_promote_owner.sql
 ```
 
 > `flow_diagram.svg` と `*.preview.jsx` は参考・確認用です。アプリには含めません。
@@ -143,7 +145,7 @@ npm run dev
    一度ログアウト→再ログインすると、オーナーとして `/schedule` に入る。
 
    > なぜ単純な `update profiles set role='owner'` ではダメか：
-   > `profiles_admin.sql` の権限昇格防止トリガーが、`auth.uid()` の無い文脈
+   > `0002_profiles_admin.sql` の権限昇格防止トリガーが、`auth.uid()` の無い文脈
    > （SQL Editor）では role 変更を巻き戻すため、UPDATE は「成功」しても
    > role は変わりません。`promote_to_owner`（手順2-3で作成）はトリガーを
    > 一時無効化して安全に昇格し、一般ユーザーからは呼べないよう権限を絞って
@@ -175,7 +177,7 @@ npm run dev
 かデプロイ環境で行います（iOS はホーム画面に追加した PWA のみ対応）。
 
 ### 9-1. DB を用意
-SQL Editor で `supabase/push_subscriptions.sql` を実行（購読保存テーブル＋RLS）。
+SQL Editor で `supabase/0004_push_subscriptions.sql` を実行（購読保存テーブル＋RLS）。
 
 ### 9-2. VAPID 鍵を生成
 ```bash
@@ -232,19 +234,19 @@ CRON_SECRET=（任意の長いランダム文字列）
 
 ## 実装済みの追加機能
 
-- 最初のオーナーを安全に作る管理関数（`promote_to_owner` / `supabase/promote_owner.sql`）
+- 最初のオーナーを安全に作る管理関数（`promote_to_owner` / `supabase/0005_promote_owner.sql`）
 - 提出期間（shift_periods）の作成・締切・公開UI（`/schedule`）
 - 希望提出のリマインド通知（アプリ内バナー / `components/SubmissionReminder.tsx`）
 - シフトのCSV出力（Excel対応・UTF-8 BOM付き / `/schedule`）
 - 希望提出リマインドの Web Push 化（手順9。`components/PushToggle.tsx` /
-  `app/api/push/*` / `public/sw.js` / `supabase/push_subscriptions.sql`）
-- 複数店舗対応（`supabase/multi_store.sql` / `/stores` / 各画面の店舗セレクタ）。
+  `app/api/push/*` / `public/sw.js` / `supabase/0004_push_subscriptions.sql`）
+- 複数店舗対応（`supabase/0003_multi_store.sql` / `/stores` / 各画面の店舗セレクタ）。
   オーナーは全店舗を管理、従業員は所属店舗の期間のみ提出・閲覧。従業員の店舗割り当ては
   「従業員管理」で行う。
 
 ## 運用メモ：複数店舗
 
-- `multi_store.sql` 実行で既存データは「本店」に移行され、既存の全従業員が本店に所属。
+- `0003_multi_store.sql` 実行で既存データは「本店」に移行され、既存の全従業員が本店に所属。
 - 新しい店舗は `/stores`（店舗管理）で作成し、`/employees` の各従業員の「所属店舗」で割り当てる。
 - 提出期間は店舗ごと。`/schedule` 上部の店舗セレクタで対象店舗を切り替えて作成・確定する。
 - リマインド（アプリ内バナー・Web Push）は、従業員の所属店舗の未提出期間のみが対象。

@@ -2,11 +2,12 @@
 // Next.js が /manifest.webmanifest を自動生成し、<link rel="manifest"> も自動挿入します。
 // アイコンは public/ 直下に配置してください。
 import type { MetadataRoute } from "next";
+import { config } from "@/lib/config";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "シフト管理", // ホーム画面の正式名（store名に変更可）
-    short_name: "シフト",
+    name: config.brandName, // ホーム画面の正式名（NEXT_PUBLIC_BRAND_NAME で店舗別に変更）
+    short_name: config.brandName,
     description: "希望シフトの提出と確認ができるアプリ",
     start_url: "/",
     scope: "/",

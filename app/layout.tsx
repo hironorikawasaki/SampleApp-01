@@ -3,15 +3,16 @@
 // Service Worker を登録する。
 import type { Metadata, Viewport } from "next";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { config } from "@/lib/config";
 import "./globals.css"; // Tailwind等のグローバルCSS（プロジェクトに合わせて）
 
 export const metadata: Metadata = {
-  title: "シフト管理",
+  title: config.brandName,
   description: "希望シフトの提出と確認ができるアプリ",
   // iOSでホーム画面に追加したときの挙動
   appleWebApp: {
     capable: true,
-    title: "シフト管理",
+    title: config.brandName,
     statusBarStyle: "default",
   },
   icons: {

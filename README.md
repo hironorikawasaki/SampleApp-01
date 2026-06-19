@@ -37,6 +37,9 @@
 
 構築手順は **[SETUP.md](./SETUP.md)** を参照してください（Supabase プロジェクト作成 → DB → 認証設定 → 起動 → デプロイ）。
 
+新しいオーナー（店舗）を 1 件追加する反復用チェックリストは
+**[docs/new-owner-onboarding.md](./docs/new-owner-onboarding.md)** にあります（方式B / サイロ型の運用ランブック）。
+
 ローカル起動の概略：
 
 ```bash

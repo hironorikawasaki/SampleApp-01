@@ -30,6 +30,7 @@ export default function AppNav({ role }: { role: Role }) {
       : [
           { href: "/availability", label: "希望提出", icon: <CalendarIcon /> },
           { href: "/my-schedule", label: "シフト確認", icon: <CheckIcon /> },
+          { href: "/attendance", label: "出退勤", icon: <ClockIcon /> },
         ];
 
   async function signOut() {
@@ -95,6 +96,14 @@ function CheckIcon() {
     <svg {...base}>
       <path d="M9 11l3 3L22 4" />
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+function ClockIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </svg>
   );
 }

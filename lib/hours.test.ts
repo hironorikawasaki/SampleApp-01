@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { monthlyHoursByEmployee, monthLabel, type ShiftHours } from "./hours";
+import {
+  monthlyHoursByEmployee,
+  monthLabel,
+  clockedHours,
+  type ShiftHours,
+} from "./hours";
 
 const s = (
   employee_id: string,
@@ -53,5 +58,27 @@ describe("monthLabel", () => {
     expect(monthLabel("2026-06")).toBe("6月");
     expect(monthLabel("2026-12")).toBe("12月");
     expect(monthLabel("2026-01")).toBe("1月");
+  });
+});
+
+describe("clockedHours", () => {
+  it("実時刻の差を時間で返す", () => {
+    expect(
+      clockedHours("2026-06-19T20:00:00Z", "2026-06-19T23:30:00Z")
+    ).toBe(3.5);
+  });
+  it("日跨ぎ（深夜）も実時刻なので素直に計算", () => {
+    // 20:00 → 翌 03:00 = 7h
+    expect(
+      clockedHours("2026-06-19T11:00:00Z", "2026-06-19T18:00:00Z")
+    ).toBe(7);
+  });
+  it("退勤前(null)は 0", () => {
+    expect(clockedHours("2026-06-19T20:00:00Z", null)).toBe(0);
+  });
+  it("退勤が出勤より前（不正）は 0", () => {
+    expect(
+      clockedHours("2026-06-19T23:00:00Z", "2026-06-19T20:00:00Z")
+    ).toBe(0);
   });
 });

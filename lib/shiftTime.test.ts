@@ -11,6 +11,8 @@ import {
   mdLabel,
   fullDate,
   relativeDay,
+  businessDayKey,
+  clockLabel,
 } from "./shiftTime";
 
 // 既定 config（openTime=20:00 / closeTime=03:00 / 30分刻み）前提のテスト。
@@ -108,5 +110,28 @@ describe("relativeDay", () => {
     const d = fromKey(todayKey());
     d.setDate(d.getDate() + 5);
     expect(relativeDay(toKey(d))).toBeNull();
+  });
+});
+
+describe("businessDayKey（営業日。closeTime=03:00 既定）", () => {
+  it("夜(開店後)は当日", () => {
+    expect(businessDayKey(new Date(2026, 5, 19, 21, 0))).toBe("2026-06-19");
+  });
+  it("深夜(閉店前=03:00より前)は前日の営業日", () => {
+    expect(businessDayKey(new Date(2026, 5, 20, 2, 0))).toBe("2026-06-19");
+  });
+  it("昼(閉店以降)は当日", () => {
+    expect(businessDayKey(new Date(2026, 5, 19, 10, 0))).toBe("2026-06-19");
+  });
+  it("境界(03:00ちょうど)は当日扱い", () => {
+    expect(businessDayKey(new Date(2026, 5, 20, 3, 0))).toBe("2026-06-20");
+  });
+});
+
+describe("clockLabel", () => {
+  it("ISO からローカル HH:MM を返す", () => {
+    // Z なし＝ローカル時刻として解釈されるため TZ非依存
+    expect(clockLabel("2026-06-19T21:05:00")).toBe("21:05");
+    expect(clockLabel("2026-06-19T02:09:00")).toBe("02:09");
   });
 });

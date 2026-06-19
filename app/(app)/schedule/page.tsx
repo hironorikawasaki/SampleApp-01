@@ -148,6 +148,8 @@ export default function OwnerScheduleBuilder() {
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<Set<string>>(new Set());
+  const [showEditPeriod, setShowEditPeriod] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
@@ -385,6 +387,52 @@ export default function OwnerScheduleBuilder() {
     [periods]
   );
 
+  // 選択中の期間を編集（成功時 null、失敗時メッセージ）
+  const updatePeriod = useCallback(
+    async (input: {
+      title: string;
+      start_date: string;
+      end_date: string;
+      submission_deadline: string;
+    }): Promise<string | null> => {
+      if (!periodId) return "期間が選択されていません。";
+      const { error: e } = await supabase
+        .from("shift_periods")
+        .update(input)
+        .eq("id", periodId);
+      if (e) return e.message;
+      setPeriods((prev) =>
+        prev
+          .map((p) => (p.id === periodId ? { ...p, ...input } : p))
+          .sort((a, b) => b.start_date.localeCompare(a.start_date))
+      );
+      setShowEditPeriod(false);
+      setSelectedDate(null);
+      return null;
+    },
+    [periodId]
+  );
+
+  // 選択中の期間を削除（希望・確定シフトも cascade で削除される）
+  const deletePeriod = useCallback(async () => {
+    if (!periodId) return;
+    const { error: e } = await supabase
+      .from("shift_periods")
+      .delete()
+      .eq("id", periodId);
+    if (e) {
+      setError(e.message);
+      return;
+    }
+    const remaining = periods.filter((p) => p.id !== periodId);
+    setPeriods(remaining);
+    setConfirmingDelete(false);
+    setShowEditPeriod(false);
+    const inStore = remaining.filter((p) => p.store_id === storeId);
+    const next = inStore.find((p) => p.status !== "published") ?? inStore[0];
+    setPeriodId(next?.id ?? null);
+  }, [periodId, periods, storeId]);
+
   // 確定シフトをCSVでダウンロード（選択中の期間）
   const exportCsv = useCallback(() => {
     if (!period || confirmed.length === 0) return;
@@ -458,7 +506,7 @@ export default function OwnerScheduleBuilder() {
             <p className="mb-6 text-sm text-slate-500">
               この店舗の提出期間を作成します。従業員はこの期間に希望シフトを提出できます。
             </p>
-            <NewPeriodForm onCreate={createPeriod} />
+            <PeriodForm onSubmit={createPeriod} />
           </>
         )}
       </div>
@@ -520,11 +568,59 @@ export default function OwnerScheduleBuilder() {
           </button>
           <button
             type="button"
-            onClick={() => setShowNewPeriod((v) => !v)}
+            onClick={() => {
+              setShowNewPeriod((v) => !v);
+              setShowEditPeriod(false);
+              setConfirmingDelete(false);
+            }}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             ＋ 新規期間
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowEditPeriod((v) => !v);
+              setShowNewPeriod(false);
+              setConfirmingDelete(false);
+            }}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            編集
+          </button>
+          {confirmingDelete ? (
+            <span className="flex items-center gap-2">
+              <span className="text-sm text-rose-600">
+                希望・確定も削除します。よろしいですか？
+              </span>
+              <button
+                type="button"
+                onClick={deletePeriod}
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                削除する
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="rounded-lg px-2 py-2 text-sm text-slate-500"
+              >
+                取消
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingDelete(true);
+                setShowEditPeriod(false);
+                setShowNewPeriod(false);
+              }}
+              className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+            >
+              削除
+            </button>
+          )}
           {period.status === "open" && (
             <button
               type="button"
@@ -582,9 +678,27 @@ export default function OwnerScheduleBuilder() {
 
       {showNewPeriod && (
         <div className="mb-5">
-          <NewPeriodForm
-            onCreate={createPeriod}
+          <PeriodForm
+            onSubmit={createPeriod}
             onCancel={() => setShowNewPeriod(false)}
+          />
+        </div>
+      )}
+
+      {showEditPeriod && (
+        <div className="mb-5">
+          <PeriodForm
+            key={period.id}
+            heading="提出期間を編集"
+            submitLabel="変更を保存"
+            initial={{
+              title: period.title,
+              start_date: period.start_date,
+              end_date: period.end_date,
+              submission_deadline: period.submission_deadline,
+            }}
+            onSubmit={updatePeriod}
+            onCancel={() => setShowEditPeriod(false)}
           />
         </div>
       )}
@@ -805,23 +919,45 @@ function StatusBadge({ status }: { status: PeriodStatus }) {
   );
 }
 
-// 提出期間の作成フォーム
-function NewPeriodForm({
-  onCreate,
+// ISO(UTC) を datetime-local 入力用のローカル文字列(YYYY-MM-DDTHH:mm)に変換
+function isoToLocalInput(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
+  )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// 提出期間の作成／編集フォーム（initial があれば編集モード）
+function PeriodForm({
+  onSubmit,
   onCancel,
+  initial,
+  heading = "提出期間を作成",
+  submitLabel = "この期間を作成",
 }: {
-  onCreate: (input: {
+  onSubmit: (input: {
     title: string;
     start_date: string;
     end_date: string;
     submission_deadline: string;
   }) => Promise<string | null>;
   onCancel?: () => void;
+  initial?: {
+    title: string;
+    start_date: string;
+    end_date: string;
+    submission_deadline: string;
+  };
+  heading?: string;
+  submitLabel?: string;
 }) {
-  const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [startDate, setStartDate] = useState(initial?.start_date ?? "");
+  const [endDate, setEndDate] = useState(initial?.end_date ?? "");
+  const [deadline, setDeadline] = useState(
+    initial ? isoToLocalInput(initial.submission_deadline) : ""
+  );
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -835,7 +971,7 @@ function NewPeriodForm({
     if (!deadline) return setLocalError("提出締切を入力してください。");
 
     setSaving(true);
-    const msg = await onCreate({
+    const msg = await onSubmit({
       title: title.trim(),
       start_date: startDate,
       end_date: endDate,
@@ -845,7 +981,7 @@ function NewPeriodForm({
     setSaving(false);
     if (msg) {
       setLocalError(msg);
-    } else {
+    } else if (!initial) {
       setTitle("");
       setStartDate("");
       setEndDate("");
@@ -855,7 +991,7 @@ function NewPeriodForm({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-bold text-slate-700">提出期間を作成</h2>
+      <h2 className="mb-4 text-sm font-bold text-slate-700">{heading}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="mb-1 block text-xs font-medium text-slate-500">
@@ -918,7 +1054,7 @@ function NewPeriodForm({
           disabled={saving}
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
         >
-          {saving ? "作成中…" : "この期間を作成"}
+          {saving ? "保存中…" : submitLabel}
         </button>
         {onCancel && (
           <button
@@ -930,10 +1066,12 @@ function NewPeriodForm({
           </button>
         )}
       </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        作成すると「受付中」状態になり、従業員が希望を提出できます。締切後に
-        「受付を締め切る」→「確定を公開」と進めます。
-      </p>
+      {!initial && (
+        <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+          作成すると「受付中」状態になり、従業員が希望を提出できます。締切後に
+          「受付を締め切る」→「確定を公開」と進めます。
+        </p>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ export default function AppNav({ role }: { role: Role }) {
       ? [
           { href: "/schedule", label: "シフト作成", icon: <GridIcon /> },
           { href: "/employees", label: "従業員管理", icon: <UsersIcon /> },
+          { href: "/stores", label: "店舗管理", icon: <StoreIcon /> },
         ]
       : [
           { href: "/availability", label: "希望提出", icon: <CalendarIcon /> },
@@ -104,6 +105,14 @@ function GridIcon() {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+function StoreIcon() {
+  return (
+    <svg {...base}>
+      <path d="M3 9l1.5-5h15L21 9M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9M3 9h18" />
+      <path d="M9 20v-6h6v6" />
     </svg>
   );
 }

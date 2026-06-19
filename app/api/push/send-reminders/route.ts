@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   // 1) 通知対象の提出期間（受付中・締切が通知ウィンドウ内）
   const { data: periods, error: e1 } = await supabase
     .from("shift_periods")
-    .select("id, title, submission_deadline")
+    .select("id, title, submission_deadline, store_id")
     .eq("status", "open")
     .gte("submission_deadline", now.toISOString())
     .lte("submission_deadline", windowEnd.toISOString());
@@ -58,11 +58,20 @@ export async function GET(request: Request) {
     (prefs ?? []).map((p) => `${p.period_id}:${p.employee_id}`)
   );
 
-  // 4) 従業員ごとの未提出期間タイトル
+  // 3b) 店舗所属（employee_id:store_id）。所属店舗の期間のみ対象にする。
+  const { data: members } = await supabase
+    .from("store_members")
+    .select("store_id, employee_id");
+  const memberOf = new Set(
+    (members ?? []).map((m) => `${m.employee_id}:${m.store_id}`)
+  );
+
+  // 4) 従業員ごとの未提出期間タイトル（所属店舗かつ未提出のみ）
   const pendingByEmployee = new Map<string, string[]>();
   for (const empId of employeeIds) {
     const titles: string[] = [];
     for (const p of periods) {
+      if (!memberOf.has(`${empId}:${p.store_id}`)) continue;
       if (!submitted.has(`${p.id}:${empId}`)) titles.push(p.title);
     }
     if (titles.length > 0) pendingByEmployee.set(empId, titles);

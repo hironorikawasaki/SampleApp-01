@@ -20,6 +20,7 @@ interface ShiftPeriod {
   start_date: string;
   end_date: string;
   status: "open" | "closed" | "published";
+  store_id: string;
 }
 interface Confirmed {
   id: string;
@@ -80,6 +81,8 @@ export default function MyScheduleView() {
   const [periodId, setPeriodId] = useState<string | null>(null);
   const [shifts, setShifts] = useState<Confirmed[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+  const [storeId, setStoreId] = useState<string | null>(null);
 
   // 公開済み期間の取得（現在を含む期間を既定に）
   useEffect(() => {
@@ -94,18 +97,32 @@ export default function MyScheduleView() {
         }
         setUserId(user.id);
 
-        const { data: ps, error: e } = await supabase
-          .from("shift_periods")
-          .select("id,title,start_date,end_date,status")
-          .eq("status", "published")
-          .order("start_date", { ascending: false });
+        const [{ data: mem }, { data: ps, error: e }] = await Promise.all([
+          supabase
+            .from("store_members")
+            .select("stores(id,name,is_active)")
+            .eq("employee_id", user.id),
+          supabase
+            .from("shift_periods")
+            .select("id,title,start_date,end_date,status,store_id")
+            .eq("status", "published")
+            .order("start_date", { ascending: false }),
+        ]);
         if (e) throw e;
 
+        const list = (mem ?? [])
+          .map((m: any) => m.stores)
+          .filter((s: any) => s && s.is_active)
+          .map((s: any) => ({ id: s.id as string, name: s.name as string }));
+        setStores(list);
+        const firstStore = list[0]?.id ?? null;
+        setStoreId(firstStore);
         setPeriods(ps ?? []);
         const tk = todayKey();
+        const inStore = (ps ?? []).filter((p) => p.store_id === firstStore);
         const current =
-          (ps ?? []).find((p) => p.start_date <= tk && tk <= p.end_date) ??
-          (ps ?? [])[0];
+          inStore.find((p) => p.start_date <= tk && tk <= p.end_date) ??
+          inStore[0];
         setPeriodId(current?.id ?? null);
       } catch (e: any) {
         setError(e?.message ?? "読み込みに失敗しました。");
@@ -135,6 +152,19 @@ export default function MyScheduleView() {
     () => periods.find((p) => p.id === periodId) ?? null,
     [periods, periodId]
   );
+  const storePeriods = useMemo(
+    () => periods.filter((p) => p.store_id === storeId),
+    [periods, storeId]
+  );
+
+  function changeStore(sid: string) {
+    setStoreId(sid);
+    const tk = todayKey();
+    const inStore = periods.filter((p) => p.store_id === sid);
+    const current =
+      inStore.find((p) => p.start_date <= tk && tk <= p.end_date) ?? inStore[0];
+    setPeriodId(current?.id ?? null);
+  }
 
   const totalHours = useMemo(
     () =>
@@ -191,21 +221,36 @@ export default function MyScheduleView() {
     <div className="mx-auto max-w-md px-4 pb-12 pt-5">
       {/* ヘッダー */}
       <header className="mb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-slate-900">あなたのシフト</h1>
-          {periods.length > 1 && (
-            <select
-              value={periodId ?? ""}
-              onChange={(e) => setPeriodId(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-            >
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="flex items-center gap-2">
+            {stores.length > 1 && (
+              <select
+                value={storeId ?? ""}
+                onChange={(e) => changeStore(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium"
+              >
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {storePeriods.length > 1 && (
+              <select
+                value={periodId ?? ""}
+                onChange={(e) => setPeriodId(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+              >
+                {storePeriods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
         {period && (
           <p className="mt-1 text-sm text-slate-500">

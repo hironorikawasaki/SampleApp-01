@@ -109,3 +109,17 @@ export function clockLabel(iso: string): string {
     d.getMinutes()
   ).padStart(2, "0")}`;
 }
+
+// ISO(UTC) → datetime-local 入力用のローカル文字列 'YYYY-MM-DDTHH:mm'
+export function isoToDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
+    d.getHours()
+  )}:${p(d.getMinutes())}`;
+}
+
+// datetime-local（端末ローカル時刻）→ ISO(UTC)
+export function datetimeLocalToIso(local: string): string {
+  return new Date(local).toISOString();
+}

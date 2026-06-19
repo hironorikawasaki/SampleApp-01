@@ -139,12 +139,15 @@ export default function ShiftPreferenceCalendar() {
   const [prefs, setPrefs] = useState<Preference[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+  const [storeId, setStoreId] = useState<string | null>(null);
 
   const editable = useMemo(() => {
     if (!period || period.status !== "open") return false;
     return new Date(period.submission_deadline).getTime() > Date.now();
   }, [period]);
 
+  // 所属店舗の読み込み（自分がメンバーの店舗のみ）
   useEffect(() => {
     (async () => {
       try {
@@ -153,37 +156,69 @@ export default function ShiftPreferenceCalendar() {
         } = await supabase.auth.getUser();
         if (!user) {
           setError("ログインが必要です。");
+          setLoading(false);
           return;
         }
         setUserId(user.id);
+        const { data: mem, error: mErr } = await supabase
+          .from("store_members")
+          .select("stores(id,name,is_active)")
+          .eq("employee_id", user.id);
+        if (mErr) throw mErr;
+        const list = (mem ?? [])
+          .map((m: any) => m.stores)
+          .filter((s: any) => s && s.is_active)
+          .map((s: any) => ({ id: s.id as string, name: s.name as string }));
+        setStores(list);
+        setStoreId(list[0]?.id ?? null);
+        if (list.length === 0) setLoading(false);
+      } catch (e: any) {
+        setError(e?.message ?? "読み込みに失敗しました。");
+        setLoading(false);
+      }
+    })();
+  }, []);
 
+  // 選択店舗の受付中期間＋自分の希望を読み込み
+  useEffect(() => {
+    if (!storeId || !userId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
         const { data: periods, error: pErr } = await supabase
           .from("shift_periods")
           .select("*")
           .eq("status", "open")
+          .eq("store_id", storeId)
           .order("start_date", { ascending: true })
           .limit(1);
         if (pErr) throw pErr;
-
         const current = periods?.[0] ?? null;
+        if (cancelled) return;
         setPeriod(current);
-
+        setSelectedDate(null);
         if (current) {
           const { data: myPrefs, error: prefErr } = await supabase
             .from("shift_preferences")
             .select("*")
             .eq("period_id", current.id)
-            .eq("employee_id", user.id);
+            .eq("employee_id", userId);
           if (prefErr) throw prefErr;
-          setPrefs(myPrefs ?? []);
+          if (!cancelled) setPrefs(myPrefs ?? []);
+        } else {
+          setPrefs([]);
         }
       } catch (e: any) {
-        setError(e?.message ?? "読み込みに失敗しました。");
+        if (!cancelled) setError(e?.message ?? "読み込みに失敗しました。");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, userId]);
 
   const prefsByDate = useMemo(() => {
     const map = new Map<string, Preference[]>();
@@ -278,12 +313,40 @@ export default function ShiftPreferenceCalendar() {
   if (!period) {
     return (
       <div className="mx-auto max-w-md p-8 text-center">
-        <p className="text-lg font-medium text-slate-800">
-          いま受付中の期間はありません
-        </p>
-        <p className="mt-2 text-sm text-slate-500">
-          次の募集が始まると、ここに表示されます。
-        </p>
+        {stores.length === 0 ? (
+          <>
+            <p className="text-lg font-medium text-slate-800">
+              所属している店舗がありません
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              オーナーに店舗への割り当てを依頼してください。
+            </p>
+          </>
+        ) : (
+          <>
+            {stores.length > 1 && (
+              <div className="mb-4 flex justify-center">
+                <select
+                  value={storeId ?? ""}
+                  onChange={(e) => setStoreId(e.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <p className="text-lg font-medium text-slate-800">
+              いま受付中の期間はありません
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              次の募集が始まると、ここに表示されます。
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -298,6 +361,19 @@ export default function ShiftPreferenceCalendar() {
     <div className="mx-auto max-w-md px-4 pb-28 pt-5">
       {/* ヘッダー */}
       <header className="mb-4">
+        {stores.length > 1 && (
+          <select
+            value={storeId ?? ""}
+            onChange={(e) => setStoreId(e.target.value)}
+            className="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium"
+          >
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         <p className="text-xs font-medium tracking-wide text-slate-400">
           {monthLabel}
         </p>

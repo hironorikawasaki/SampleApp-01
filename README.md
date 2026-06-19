@@ -18,7 +18,8 @@
 - 日ごとに全員の希望を一覧し、ワンタップで確定／時間・担当の調整／手動追加
 - 従業員ごとの確定合計時間と月上限の比較（扶養・契約の上限管理）
 - 確定シフトの **CSV 出力**（Excel 対応・UTF-8 BOM 付き）
-- 従業員管理（雇用形態・月上限時間・有効/無効）
+- 従業員管理（雇用形態・月上限時間・有効/無効・店舗割り当て）
+- **複数店舗対応**（店舗の作成、店舗ごとのシフト。オーナーは全店舗を管理、従業員は所属店舗のみ）
 
 **共通 / 基盤**
 - メール＋パスワード／マジックリンクによる認証（Supabase Auth）
@@ -60,10 +61,11 @@ SampleApp-01/
 │     ├─ availability/          希望提出（従業員）
 │     ├─ my-schedule/           確定シフト確認（従業員）
 │     ├─ schedule/              シフト作成・期間作成・CSV出力（オーナー）
-│     └─ employees/             従業員管理（オーナー）
+│     ├─ employees/             従業員管理・店舗割り当て（オーナー）
+│     └─ stores/                店舗管理（オーナー）
 ├─ components/                  AuthScreen / AppNav / SubmissionReminder / PushToggle / SW登録
 ├─ lib/                         Supabase クライアント（ブラウザ / サーバー / admin）・web-push設定
 ├─ public/                      Service Worker（push対応）・アイコン
 ├─ vercel.json                  リマインド送信の定期実行(cron)
-└─ supabase/                    SQL（スキーマ / RLS追加 / オーナー昇格 / push購読）
+└─ supabase/                    SQL（スキーマ / RLS追加 / オーナー昇格 / push購読 / 複数店舗）
 ```

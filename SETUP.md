@@ -27,8 +27,11 @@
 1. `supabase/shift_app_schema.sql` … テーブル・型・RLS・トリガー一式
 2. `supabase/profiles_admin.sql` … プロフィール管理用のRLS追加＋権限昇格防止トリガー
 3. `supabase/promote_owner.sql` … 最初のオーナーを安全に作るための管理関数（手順7で使用）
+4. `supabase/push_subscriptions.sql` … Web Push の購読保存（手順9）
+5. `supabase/multi_store.sql` … 複数店舗対応（stores / store_members / 期間の店舗紐付け・RLS・既存データ移行）
 
-> 1 → 2 の順序が重要です（1 を先に流してから 2）。3 は 1・2 の後ならいつでも可。
+> 1 → 2 の順序が重要です（1 を先に流してから 2）。3〜5 は 1・2 の後ならいつでも可。
+> `multi_store.sql` は既存データを「本店」へ自動移行します。
 > SQL ファイルはすべて `supabase/` フォルダにあります。
 
 ## 3. 認証の設定
@@ -235,8 +238,14 @@ CRON_SECRET=（任意の長いランダム文字列）
 - シフトのCSV出力（Excel対応・UTF-8 BOM付き / `/schedule`）
 - 希望提出リマインドの Web Push 化（手順9。`components/PushToggle.tsx` /
   `app/api/push/*` / `public/sw.js` / `supabase/push_subscriptions.sql`）
+- 複数店舗対応（`supabase/multi_store.sql` / `/stores` / 各画面の店舗セレクタ）。
+  オーナーは全店舗を管理、従業員は所属店舗の期間のみ提出・閲覧。従業員の店舗割り当ては
+  「従業員管理」で行う。
 
-## まだ無い機能（必要になったら）
+## 運用メモ：複数店舗
 
-- 複数店舗対応（スキーマ変更を伴う）
+- `multi_store.sql` 実行で既存データは「本店」に移行され、既存の全従業員が本店に所属。
+- 新しい店舗は `/stores`（店舗管理）で作成し、`/employees` の各従業員の「所属店舗」で割り当てる。
+- 提出期間は店舗ごと。`/schedule` 上部の店舗セレクタで対象店舗を切り替えて作成・確定する。
+- リマインド（アプリ内バナー・Web Push）は、従業員の所属店舗の未提出期間のみが対象。
 ```

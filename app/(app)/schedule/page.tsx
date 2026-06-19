@@ -37,7 +37,14 @@ interface ShiftPeriod {
   end_date: string;
   submission_deadline: string;
   status: PeriodStatus;
+  store_id: string;
 }
+interface Store {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+const memberKey = (empId: string, storeId: string) => `${empId}:${storeId}`;
 interface Preference {
   id: string;
   employee_id: string;
@@ -138,6 +145,9 @@ export default function OwnerScheduleBuilder() {
   const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showNewPeriod, setShowNewPeriod] = useState(false);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storeId, setStoreId] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<Set<string>>(new Set());
 
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
@@ -148,9 +158,18 @@ export default function OwnerScheduleBuilder() {
     profiles.forEach((p) => m.set(p.id, p));
     return m;
   }, [profiles]);
+  // 選択中の店舗に所属する在籍従業員のみ
   const activeEmployees = useMemo(
-    () => profiles.filter((p) => p.is_active),
-    [profiles]
+    () =>
+      profiles.filter(
+        (p) => p.is_active && memberships.has(memberKey(p.id, storeId ?? ""))
+      ),
+    [profiles, memberships, storeId]
+  );
+  // 選択中の店舗の提出期間
+  const storePeriods = useMemo(
+    () => periods.filter((p) => p.store_id === storeId),
+    [periods, storeId]
   );
 
   // 期間とプロフィールの初期ロード
@@ -161,22 +180,39 @@ export default function OwnerScheduleBuilder() {
           data: { user },
         } = await supabase.auth.getUser();
         setUserId(user?.id ?? null);
-        const [{ data: ps, error: e1 }, { data: prof, error: e2 }] =
-          await Promise.all([
-            supabase
-              .from("shift_periods")
-              .select("*")
-              .order("start_date", { ascending: false }),
-            supabase.from("profiles").select("*").order("full_name"),
-          ]);
+        const [
+          { data: ps, error: e1 },
+          { data: prof, error: e2 },
+          { data: sts, error: e3 },
+          { data: mem, error: e4 },
+        ] = await Promise.all([
+          supabase
+            .from("shift_periods")
+            .select("*")
+            .order("start_date", { ascending: false }),
+          supabase.from("profiles").select("*").order("full_name"),
+          supabase
+            .from("stores")
+            .select("id,name,is_active")
+            .order("created_at", { ascending: true }),
+          supabase.from("store_members").select("store_id,employee_id"),
+        ]);
         if (e1) throw e1;
         if (e2) throw e2;
+        if (e3) throw e3;
+        if (e4) throw e4;
         setPeriods(ps ?? []);
         setProfiles(prof ?? []);
-        // 既定は「未公開で最新」の期間
-        const def =
-          (ps ?? []).find((p) => p.status !== "published") ?? (ps ?? [])[0];
-        if (def) setPeriodId(def.id);
+        setStores(sts ?? []);
+        setMemberships(
+          new Set((mem ?? []).map((m) => memberKey(m.employee_id, m.store_id)))
+        );
+        // 既定の店舗（先頭）と、その店舗の「未公開で最新」の期間を選択
+        const firstStore = (sts ?? [])[0]?.id ?? null;
+        setStoreId(firstStore);
+        const inStore = (ps ?? []).filter((p) => p.store_id === firstStore);
+        const def = inStore.find((p) => p.status !== "published") ?? inStore[0];
+        setPeriodId(def?.id ?? null);
       } catch (e: any) {
         setError(e?.message ?? "読み込みに失敗しました。");
       } finally {
@@ -311,9 +347,15 @@ export default function OwnerScheduleBuilder() {
     }): Promise<string | null> => {
       if (!userId)
         return "ユーザー情報を取得できませんでした。再ログインしてください。";
+      if (!storeId) return "店舗を選択してください。";
       const { data, error: e } = await supabase
         .from("shift_periods")
-        .insert({ ...input, status: "open", created_by: userId })
+        .insert({
+          ...input,
+          status: "open",
+          created_by: userId,
+          store_id: storeId,
+        })
         .select()
         .single();
       if (e) return e.message;
@@ -329,7 +371,18 @@ export default function OwnerScheduleBuilder() {
       }
       return null;
     },
-    [userId]
+    [userId, storeId]
+  );
+
+  // 店舗を切り替え、その店舗の既定期間を選択
+  const changeStore = useCallback(
+    (sid: string) => {
+      setStoreId(sid);
+      const inStore = periods.filter((p) => p.store_id === sid);
+      const def = inStore.find((p) => p.status !== "published") ?? inStore[0];
+      setPeriodId(def?.id ?? null);
+    },
+    [periods]
   );
 
   // 確定シフトをCSVでダウンロード（選択中の期間）
@@ -382,10 +435,32 @@ export default function OwnerScheduleBuilder() {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
         <h1 className="mb-1 text-2xl font-bold text-slate-900">シフト作成</h1>
-        <p className="mb-6 text-sm text-slate-500">
-          まず提出期間を作成します。従業員はこの期間に希望シフトを提出できます。
-        </p>
-        <NewPeriodForm onCreate={createPeriod} />
+        {stores.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+            まだ店舗がありません。先に「店舗管理」で店舗を作成してください。
+          </p>
+        ) : (
+          <>
+            <div className="mb-4 mt-2 flex items-center gap-2">
+              <span className="text-sm text-slate-500">店舗</span>
+              <select
+                value={storeId ?? ""}
+                onChange={(e) => changeStore(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mb-6 text-sm text-slate-500">
+              この店舗の提出期間を作成します。従業員はこの期間に希望シフトを提出できます。
+            </p>
+            <NewPeriodForm onCreate={createPeriod} />
+          </>
+        )}
       </div>
     );
 
@@ -402,13 +477,24 @@ export default function OwnerScheduleBuilder() {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">シフト作成</h1>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select
+              value={storeId ?? ""}
+              onChange={(e) => changeStore(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium"
+            >
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
             <select
               value={periodId ?? ""}
               onChange={(e) => setPeriodId(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
             >
-              {periods.map((p) => (
+              {storePeriods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}（{p.start_date}〜{p.end_date}）
                 </option>

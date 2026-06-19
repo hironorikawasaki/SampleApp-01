@@ -21,12 +21,22 @@ interface Profile {
   phone: string | null;
   is_active: boolean;
 }
+interface Store {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
+// 所属の集合キー
+const memberKey = (empId: string, storeId: string) => `${empId}:${storeId}`;
 
 export default function EmployeeManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [memberships, setMemberships] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -39,13 +49,25 @@ export default function EmployeeManager() {
           return;
         }
         setMeId(user.id);
-        const { data, error: e } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("is_active", { ascending: false })
-          .order("full_name");
+        const [{ data: profs, error: e }, { data: sts }, { data: mem }] =
+          await Promise.all([
+            supabase
+              .from("profiles")
+              .select("*")
+              .order("is_active", { ascending: false })
+              .order("full_name"),
+            supabase
+              .from("stores")
+              .select("id,name,is_active")
+              .order("created_at", { ascending: true }),
+            supabase.from("store_members").select("store_id,employee_id"),
+          ]);
         if (e) throw e;
-        setProfiles(data ?? []);
+        setProfiles(profs ?? []);
+        setStores(sts ?? []);
+        setMemberships(
+          new Set((mem ?? []).map((m) => memberKey(m.employee_id, m.store_id)))
+        );
       } catch (e: any) {
         setError(e?.message ?? "読み込みに失敗しました。");
       } finally {
@@ -57,6 +79,29 @@ export default function EmployeeManager() {
   async function update(id: string, patch: Partial<Profile>) {
     setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     const { error: e } = await supabase.from("profiles").update(patch).eq("id", id);
+    if (e) setError(e.message);
+  }
+
+  async function toggleMembership(empId: string, storeId: string, on: boolean) {
+    const key = memberKey(empId, storeId);
+    setMemberships((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    const { error: e } = on
+      ? await supabase
+          .from("store_members")
+          .upsert(
+            { employee_id: empId, store_id: storeId },
+            { onConflict: "store_id,employee_id" }
+          )
+      : await supabase
+          .from("store_members")
+          .delete()
+          .eq("employee_id", empId)
+          .eq("store_id", storeId);
     if (e) setError(e.message);
   }
 
@@ -90,7 +135,15 @@ export default function EmployeeManager() {
         ) : (
           <ul className="space-y-2">
             {active.map((p) => (
-              <Row key={p.id} p={p} isMe={p.id === meId} onUpdate={update} />
+              <Row
+                key={p.id}
+                p={p}
+                isMe={p.id === meId}
+                onUpdate={update}
+                stores={stores}
+                memberships={memberships}
+                onToggleMembership={toggleMembership}
+              />
             ))}
           </ul>
         )}
@@ -103,7 +156,15 @@ export default function EmployeeManager() {
           </h2>
           <ul className="space-y-2">
             {inactive.map((p) => (
-              <Row key={p.id} p={p} isMe={p.id === meId} onUpdate={update} />
+              <Row
+                key={p.id}
+                p={p}
+                isMe={p.id === meId}
+                onUpdate={update}
+                stores={stores}
+                memberships={memberships}
+                onToggleMembership={toggleMembership}
+              />
             ))}
           </ul>
         </section>
@@ -116,11 +177,18 @@ function Row({
   p,
   isMe,
   onUpdate,
+  stores,
+  memberships,
+  onToggleMembership,
 }: {
   p: Profile;
   isMe: boolean;
   onUpdate: (id: string, patch: Partial<Profile>) => void;
+  stores: Store[];
+  memberships: Set<string>;
+  onToggleMembership: (empId: string, storeId: string, on: boolean) => void;
 }) {
+  const activeStores = stores.filter((s) => s.is_active);
   return (
     <li
       className={`rounded-xl border p-3 ${
@@ -205,6 +273,34 @@ function Row({
           {p.is_active ? "無効化" : "復帰"}
         </button>
       </div>
+
+      {/* 所属店舗（従業員のみ。オーナーは全店舗を管理できるため割り当て不要） */}
+      {p.role === "employee" && activeStores.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+          <span className="text-xs font-medium text-slate-500">所属店舗</span>
+          {activeStores.map((s) => {
+            const on = memberships.has(memberKey(p.id, s.id));
+            return (
+              <label
+                key={s.id}
+                className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                  on
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) => onToggleMembership(p.id, s.id, e.target.checked)}
+                  className="sr-only"
+                />
+                {s.name}
+              </label>
+            );
+          })}
+        </div>
+      )}
     </li>
   );
 }

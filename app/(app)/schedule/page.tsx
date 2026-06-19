@@ -106,6 +106,17 @@ const PREF_META: Record<PreferenceType, { label: string; chip: string }> = {
 };
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
+// ヘッダーのアクションボタン共通クラス（高さ・余白を統一）
+// 塗りボタンも border-transparent を持たせ、アウトラインと同じ高さに揃える。
+const BTN_BASE =
+  "inline-flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition";
+const BTN_SECONDARY = `${BTN_BASE} border-slate-300 text-slate-700 hover:bg-slate-50`;
+const BTN_DANGER_OUTLINE = `${BTN_BASE} border-rose-300 text-rose-600 hover:bg-rose-50`;
+const BTN_PRIMARY = `${BTN_BASE} border-transparent bg-slate-900 font-semibold text-white hover:bg-slate-800`;
+const BTN_SUCCESS = `${BTN_BASE} border-transparent bg-emerald-600 font-semibold text-white hover:bg-emerald-700`;
+const BTN_DANGER = `${BTN_BASE} border-transparent bg-rose-600 font-semibold text-white hover:bg-rose-700`;
+const BTN_GHOST = `${BTN_BASE} border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700`;
+
 function toKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
@@ -557,7 +568,7 @@ export default function OwnerScheduleBuilder() {
             type="button"
             onClick={exportCsv}
             disabled={confirmed.length === 0}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className={`${BTN_SECONDARY} disabled:opacity-40`}
             title={
               confirmed.length === 0
                 ? "確定シフトがありません"
@@ -573,7 +584,7 @@ export default function OwnerScheduleBuilder() {
               setShowEditPeriod(false);
               setConfirmingDelete(false);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className={BTN_SECONDARY}
           >
             ＋ 新規期間
           </button>
@@ -584,7 +595,7 @@ export default function OwnerScheduleBuilder() {
               setShowNewPeriod(false);
               setConfirmingDelete(false);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className={BTN_SECONDARY}
           >
             編集
           </button>
@@ -596,7 +607,7 @@ export default function OwnerScheduleBuilder() {
               <button
                 type="button"
                 onClick={deletePeriod}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                className={BTN_DANGER}
               >
                 削除する
               </button>
@@ -616,7 +627,7 @@ export default function OwnerScheduleBuilder() {
                 setShowEditPeriod(false);
                 setShowNewPeriod(false);
               }}
-              className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+              className={BTN_DANGER_OUTLINE}
             >
               削除
             </button>
@@ -625,7 +636,7 @@ export default function OwnerScheduleBuilder() {
             <button
               type="button"
               onClick={() => setStatus("closed")}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className={BTN_SECONDARY}
             >
               受付を締め切る
             </button>
@@ -637,14 +648,14 @@ export default function OwnerScheduleBuilder() {
                 <button
                   type="button"
                   onClick={() => setStatus("published")}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className={BTN_SUCCESS}
                 >
                   公開する
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingPublish(false)}
-                  className="rounded-lg px-2 py-2 text-sm text-slate-500"
+                  className={BTN_GHOST}
                 >
                   取消
                 </button>
@@ -653,7 +664,7 @@ export default function OwnerScheduleBuilder() {
               <button
                 type="button"
                 onClick={() => setConfirmingPublish(true)}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className={BTN_PRIMARY}
               >
                 確定を公開
               </button>
@@ -662,7 +673,7 @@ export default function OwnerScheduleBuilder() {
             <button
               type="button"
               onClick={() => setStatus("closed")}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className={BTN_SECONDARY}
             >
               公開を取り下げて編集
             </button>
@@ -993,7 +1004,7 @@ function PeriodForm({
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="mb-4 text-sm font-bold text-slate-700">{heading}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block sm:col-span-2">
+        <label className="block min-w-0 sm:col-span-2">
           <span className="mb-1 block text-xs font-medium text-slate-500">
             タイトル
           </span>
@@ -1002,10 +1013,10 @@ function PeriodForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="例: 2026年7月前半"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
         </label>
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-1 block text-xs font-medium text-slate-500">
             開始日
           </span>
@@ -1013,10 +1024,10 @@ function PeriodForm({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
         </label>
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-1 block text-xs font-medium text-slate-500">
             終了日
           </span>
@@ -1025,10 +1036,10 @@ function PeriodForm({
             value={endDate}
             min={startDate || undefined}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
         </label>
-        <label className="block sm:col-span-2">
+        <label className="block min-w-0 sm:col-span-2">
           <span className="mb-1 block text-xs font-medium text-slate-500">
             提出締切（日時）
           </span>
@@ -1036,7 +1047,7 @@ function PeriodForm({
             type="datetime-local"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
         </label>
       </div>

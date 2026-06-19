@@ -4,7 +4,7 @@
 // 従業員向け 希望シフト提出カレンダー
 //   - 受付中(open)の提出期間を取得し、対象日をカレンダー表示
 //   - 入れる日をタップ → 時間帯を「希望/勤務可能/NG」で追加
-//   - 営業時間 20:00〜翌3:00（日付跨ぎ）前提の時間選択
+//   - 営業時間（config の openTime〜翌closeTime・日付跨ぎ）前提の時間選択
 //   - カレンダーの日付 = その日に開店する営業日（夜）を指す
 //   - 締切後・受付終了後は閲覧のみ
 // 依存: @/lib/supabaseClient
@@ -13,6 +13,15 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { config } from "@/lib/config";
+import {
+  WEEKDAYS,
+  TIME_SLOTS,
+  timeLabel,
+  hoursBetween,
+  toKey,
+  fromKey,
+} from "@/lib/shiftTime";
 
 // ---- 型 ------------------------------------------------------
 type PeriodStatus = "open" | "closed" | "published";
@@ -38,60 +47,8 @@ interface Preference {
   note: string | null;
 }
 
-// ---- 営業時間（ここだけ変えれば全体に反映）-------------------
-const OPEN_TIME = "20:00";
-const CLOSE_TIME = "03:00"; // 翌日扱い
-const SLOT_MINUTES = 30;
-
-// 営業開始より前の時刻 = 日付を跨いだ深夜（翌日側）
-function isNextDay(t: string): boolean {
-  return t.slice(0, 5) < OPEN_TIME;
-}
-// 表示用：翌日側には「翌」を付ける
-function timeLabel(t: string | null): string {
-  if (!t) return "";
-  const v = t.slice(0, 5);
-  return (isNextDay(v) ? "翌" : "") + v;
-}
-// 2時刻の勤務時間（跨ぎ補正込み）
-function hoursBetween(start: string, end: string): number {
-  const toMin = (s: string) => {
-    const [h, m] = s.slice(0, 5).split(":").map(Number);
-    return h * 60 + m;
-  };
-  let diff = toMin(end) - toMin(start);
-  if (diff <= 0) diff += 1440;
-  return Math.round((diff / 60) * 10) / 10;
-}
-// 営業時間内の30分スロット（20:00,20:30,…,翌3:00）を生成
-function buildSlots(open: string, close: string): string[] {
-  const toMin = (s: string) => {
-    const [h, m] = s.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const fmt = (mins: number) => {
-    const m = ((mins % 1440) + 1440) % 1440;
-    return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(
-      m % 60
-    ).padStart(2, "0")}`;
-  };
-  const startMin = toMin(open);
-  const endMin = toMin(close) + 1440; // 翌日ぶんを足して跨ぎを表現
-  const slots: string[] = [];
-  for (let m = startMin; m <= endMin; m += SLOT_MINUTES) slots.push(fmt(m));
-  return slots;
-}
-const TIME_SLOTS = buildSlots(OPEN_TIME, CLOSE_TIME);
-
-// ---- 定番シフト（ワンタップで時間帯をセット）-----------------
-// ここを編集すればボタンを増減できます。
-const PRESETS: { label: string; start: string; end: string }[] = [
-  { label: "通し", start: "20:00", end: "03:00" }, // 20:00〜翌3:00
-  { label: "前半", start: "20:00", end: "00:00" },
-  { label: "後半", start: "00:00", end: "03:00" },
-  { label: "20→翌1", start: "20:00", end: "01:00" },
-  { label: "22→翌3", start: "22:00", end: "03:00" },
-];
+// ---- 定番シフト（config で店舗別に上書き可）-------------------
+const PRESETS = config.shiftPresets;
 
 // ---- 希望種別の表示設定 --------------------------------------
 const PREF_META: Record<
@@ -117,20 +74,6 @@ const PREF_META: Record<
     ring: "ring-rose-500",
   },
 };
-
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
-// ---- 日付ユーティリティ（ローカル日付で扱う） ----------------
-function toKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-function fromKey(key: string): Date {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 
 export default function ShiftPreferenceCalendar() {
   const [loading, setLoading] = useState(true);
@@ -381,7 +324,8 @@ export default function ShiftPreferenceCalendar() {
           {period.title} の希望シフト
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          営業 20:00〜翌3:00。入れる日（開店日）をタップして時間帯を登録してください。
+          営業 {config.openTime}〜翌{config.closeTime}
+          。入れる日（開店日）をタップして時間帯を登録してください。
         </p>
         <div
           className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
@@ -510,7 +454,7 @@ function DaySheet({
   })`;
 
   const [pref, setPref] = useState<PreferenceType>("preferred");
-  const [start, setStart] = useState(OPEN_TIME);
+  const [start, setStart] = useState(config.openTime);
   const [end, setEnd] = useState("00:00");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -565,7 +509,7 @@ function DaySheet({
           </button>
         </div>
         <p className="mb-4 text-xs text-slate-400">
-          この日の20:00開店ぶん（翌3:00まで）の営業日です。
+          この日の{config.openTime}開店ぶん（翌{config.closeTime}まで）の営業日です。
         </p>
 
         {/* 登録済みの希望 */}

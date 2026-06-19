@@ -11,8 +11,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-const OPEN_TIME = "20:00";
+import {
+  timeLabel,
+  hoursBetween,
+  todayKey,
+  fromKey,
+  fullDate,
+  relativeDay,
+} from "@/lib/shiftTime";
 
 interface ShiftPeriod {
   id: string;
@@ -29,49 +35,6 @@ interface Confirmed {
   end_time: string;
   position: string | null;
   note: string | null;
-}
-
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
-function isNextDay(t: string) {
-  return t.slice(0, 5) < OPEN_TIME;
-}
-function timeLabel(t: string) {
-  const v = t.slice(0, 5);
-  return (isNextDay(v) ? "翌" : "") + v;
-}
-function hoursBetween(start: string, end: string) {
-  const toMin = (s: string) => {
-    const [h, m] = s.slice(0, 5).split(":").map(Number);
-    return h * 60 + m;
-  };
-  let diff = toMin(end) - toMin(start);
-  if (diff <= 0) diff += 1440;
-  return Math.round((diff / 60) * 10) / 10;
-}
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
-}
-function fromKey(key: string) {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-function fullDate(key: string) {
-  const d = fromKey(key);
-  return `${d.getMonth() + 1}月${d.getDate()}日(${WEEKDAYS[d.getDay()]})`;
-}
-// 今日からの相対表現
-function relativeDay(key: string) {
-  const diff = Math.round(
-    (fromKey(key).getTime() - fromKey(todayKey()).getTime()) / 86400000
-  );
-  if (diff === 0) return "今日";
-  if (diff === 1) return "明日";
-  if (diff === 2) return "明後日";
-  return null;
 }
 
 export default function MyScheduleView() {

@@ -13,9 +13,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
-// 店舗名はここを変更（ヘッダー表示用）
-const STORE_NAME = "店舗名";
+import { config } from "@/lib/config";
 
 type Mode = "signin" | "signup";
 type Method = "password" | "magic";
@@ -147,9 +145,9 @@ export default function AuthScreen() {
         {/* ブランド */}
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            {STORE_NAME}
+            {config.storeName}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">シフト管理</p>
+          <p className="mt-1 text-sm text-slate-500">{config.brandName}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">

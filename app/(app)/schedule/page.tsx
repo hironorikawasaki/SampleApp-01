@@ -13,11 +13,16 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-// ---- 営業時間（20:00〜翌3:00）-------------------------------
-const OPEN_TIME = "20:00";
-const CLOSE_TIME = "03:00";
-const SLOT_MINUTES = 30;
+import { config } from "@/lib/config";
+import {
+  WEEKDAYS,
+  TIME_SLOTS,
+  timeLabel,
+  hoursBetween,
+  toKey,
+  fromKey,
+  mdLabel,
+} from "@/lib/shiftTime";
 
 type PeriodStatus = "open" | "closed" | "published";
 type PreferenceType = "preferred" | "available" | "unavailable";
@@ -64,48 +69,11 @@ interface Confirmed {
   note: string | null;
 }
 
-function isNextDay(t: string) {
-  return t.slice(0, 5) < OPEN_TIME;
-}
-function timeLabel(t: string | null) {
-  if (!t) return "";
-  const v = t.slice(0, 5);
-  return (isNextDay(v) ? "翌" : "") + v;
-}
-function hoursBetween(start: string, end: string) {
-  const toMin = (s: string) => {
-    const [h, m] = s.slice(0, 5).split(":").map(Number);
-    return h * 60 + m;
-  };
-  let diff = toMin(end) - toMin(start);
-  if (diff <= 0) diff += 1440;
-  return Math.round((diff / 60) * 10) / 10;
-}
-function buildSlots(open: string, close: string) {
-  const toMin = (s: string) => {
-    const [h, m] = s.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const fmt = (mins: number) => {
-    const m = ((mins % 1440) + 1440) % 1440;
-    return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(
-      m % 60
-    ).padStart(2, "0")}`;
-  };
-  const slots: string[] = [];
-  for (let m = toMin(open); m <= toMin(close) + 1440; m += SLOT_MINUTES)
-    slots.push(fmt(m));
-  return slots;
-}
-const TIME_SLOTS = buildSlots(OPEN_TIME, CLOSE_TIME);
-
 const PREF_META: Record<PreferenceType, { label: string; chip: string }> = {
   preferred: { label: "希望", chip: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   available: { label: "勤務可能", chip: "bg-sky-50 text-sky-700 border-sky-200" },
   unavailable: { label: "NG", chip: "bg-rose-50 text-rose-700 border-rose-200" },
 };
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
 // ヘッダーのアクションボタン共通クラス（高さ・余白を統一）
 // 塗りボタンも border-transparent を持たせ、アウトラインと同じ高さに揃える。
 const BTN_BASE =
@@ -116,20 +84,6 @@ const BTN_PRIMARY = `${BTN_BASE} border-transparent bg-slate-900 font-semibold t
 const BTN_SUCCESS = `${BTN_BASE} border-transparent bg-emerald-600 font-semibold text-white hover:bg-emerald-700`;
 const BTN_DANGER = `${BTN_BASE} border-transparent bg-rose-600 font-semibold text-white hover:bg-rose-700`;
 const BTN_GHOST = `${BTN_BASE} border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700`;
-
-function toKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
-}
-function fromKey(key: string) {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-function mdLabel(key: string) {
-  const d = fromKey(key);
-  return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
-}
 
 // 1セルをCSV用にエスケープ（カンマ・改行・引用符を含む場合のみ "" で囲む）
 function csvCell(v: string) {
@@ -1222,8 +1176,8 @@ function ManualAdd({
 }) {
   const candidates = employees.filter((e) => !existing.has(e.id));
   const [empId, setEmpId] = useState("");
-  const [start, setStart] = useState(OPEN_TIME);
-  const [end, setEnd] = useState("03:00");
+  const [start, setStart] = useState(config.openTime);
+  const [end, setEnd] = useState(config.closeTime);
   const startIdx = TIME_SLOTS.indexOf(start);
 
   function add() {

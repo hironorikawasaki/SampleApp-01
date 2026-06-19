@@ -589,8 +589,8 @@ export default function OwnerScheduleBuilder() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
-        <div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0">
           {/* 日付ストリップ */}
           <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
             {dates.map((key) => {

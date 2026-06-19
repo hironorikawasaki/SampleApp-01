@@ -55,9 +55,14 @@ export default function StoreManager() {
   }
 
   async function update(id: string, patch: Partial<Store>) {
-    setStores((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    // 楽観的更新：失敗時は更新前の状態へ戻す
+    const prev = stores;
+    setStores((cur) => cur.map((s) => (s.id === id ? { ...s, ...patch } : s)));
     const { error: e } = await supabase.from("stores").update(patch).eq("id", id);
-    if (e) setError(e.message);
+    if (e) {
+      setStores(prev);
+      setError(e.message);
+    }
   }
 
   if (loading)

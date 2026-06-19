@@ -318,25 +318,39 @@ export default function OwnerScheduleBuilder() {
 
   const updateConfirmed = useCallback(
     async (id: string, patch: Partial<Confirmed>) => {
-      setConfirmed((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
-      );
+      // 楽観的更新：失敗時は更新前の状態へ戻す
+      let prev: Confirmed[] = [];
+      setConfirmed((cur) => {
+        prev = cur;
+        return cur.map((c) => (c.id === id ? { ...c, ...patch } : c));
+      });
       const { error: e } = await supabase
         .from("confirmed_shifts")
         .update(patch)
         .eq("id", id);
-      if (e) setError(e.message);
+      if (e) {
+        setConfirmed(prev);
+        setError(e.message);
+      }
     },
     []
   );
 
   const removeConfirmed = useCallback(async (id: string) => {
-    setConfirmed((prev) => prev.filter((c) => c.id !== id));
+    // 楽観的削除：失敗時は元へ戻す
+    let prev: Confirmed[] = [];
+    setConfirmed((cur) => {
+      prev = cur;
+      return cur.filter((c) => c.id !== id);
+    });
     const { error: e } = await supabase
       .from("confirmed_shifts")
       .delete()
       .eq("id", id);
-    if (e) setError(e.message);
+    if (e) {
+      setConfirmed(prev);
+      setError(e.message);
+    }
   }, []);
 
   const setStatus = useCallback(

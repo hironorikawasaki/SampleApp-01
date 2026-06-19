@@ -39,6 +39,44 @@ div{padding:24px}</style></head>
 <body><div><h1 style="font-size:18px">オフラインです</h1>
 <p style="font-size:14px;color:#64748b">通信状況を確認して、もう一度お試しください。</p></div></body></html>`;
 
+// ---- Web Push ------------------------------------------------
+// サーバーからのプッシュを受け取り通知を表示する。
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title || "シフト管理";
+  const options = {
+    body: data.body || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url: data.url || "/" },
+    tag: "shift-reminder", // 同種の通知は上書きして重複を防ぐ
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 通知タップで該当ページを開く（既存タブがあれば再利用）。
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const client of list) {
+          if (client.url.includes(target) && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) return self.clients.openWindow(target);
+      })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;

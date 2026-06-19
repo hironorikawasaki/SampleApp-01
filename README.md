@@ -11,6 +11,7 @@
 - 希望シフトの提出（希望 / 勤務可能 / NG=休み希望）
 - 確定シフトの確認（`/my-schedule`）
 - 未提出のリマインドバナー（締切が近いと自動表示）
+- 提出忘れの Web Push 通知（締切前に端末へプッシュ。オプトイン）
 
 **オーナー**
 - 提出期間の作成・受付締切・公開（画面操作で完結）
@@ -54,13 +55,15 @@ SampleApp-01/
 │  ├─ manifest.ts               PWA マニフェスト
 │  ├─ login/                    ログイン / 新規登録
 │  ├─ auth/callback/            メール確認・マジックリンクの戻り先
+│  ├─ api/push/                 購読保存・リマインド送信(cron)
 │  └─ (app)/                    ログイン後の共通レイアウト＋各画面
 │     ├─ availability/          希望提出（従業員）
 │     ├─ my-schedule/           確定シフト確認（従業員）
 │     ├─ schedule/              シフト作成・期間作成・CSV出力（オーナー）
 │     └─ employees/             従業員管理（オーナー）
-├─ components/                  AuthScreen / AppNav / SubmissionReminder / SW登録
-├─ lib/                         Supabase クライアント（ブラウザ / サーバー）
-├─ public/                      Service Worker・アイコン
-└─ supabase/                    SQL（スキーマ / RLS追加 / オーナー昇格関数）
+├─ components/                  AuthScreen / AppNav / SubmissionReminder / PushToggle / SW登録
+├─ lib/                         Supabase クライアント（ブラウザ / サーバー / admin）・web-push設定
+├─ public/                      Service Worker（push対応）・アイコン
+├─ vercel.json                  リマインド送信の定期実行(cron)
+└─ supabase/                    SQL（スキーマ / RLS追加 / オーナー昇格 / push購読）
 ```

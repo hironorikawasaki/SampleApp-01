@@ -10,7 +10,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // 認証なしでアクセスできるパス
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /api は各ルートハンドラ側で認証する（cron はトークン認証のためログイン不要）
+const PUBLIC_PATHS = ["/login", "/auth", "/api"];
 
 export async function middleware(request: NextRequest) {
   // このレスポンスにCookieを書き込み、最終的に返す（公式パターン）

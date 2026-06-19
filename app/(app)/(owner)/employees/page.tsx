@@ -77,15 +77,21 @@ export default function EmployeeManager() {
   }, []);
 
   async function update(id: string, patch: Partial<Profile>) {
-    setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    // 楽観的更新：失敗時は更新前の状態へ戻す（UIとDBの不一致を防ぐ）
+    const prev = profiles;
+    setProfiles((cur) => cur.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     const { error: e } = await supabase.from("profiles").update(patch).eq("id", id);
-    if (e) setError(e.message);
+    if (e) {
+      setProfiles(prev);
+      setError(e.message);
+    }
   }
 
   async function toggleMembership(empId: string, storeId: string, on: boolean) {
     const key = memberKey(empId, storeId);
-    setMemberships((prev) => {
-      const next = new Set(prev);
+    const prev = memberships;
+    setMemberships((cur) => {
+      const next = new Set(cur);
       if (on) next.add(key);
       else next.delete(key);
       return next;
@@ -102,7 +108,10 @@ export default function EmployeeManager() {
           .delete()
           .eq("employee_id", empId)
           .eq("store_id", storeId);
-    if (e) setError(e.message);
+    if (e) {
+      setMemberships(prev); // 失敗時は元の所属状態へ戻す
+      setError(e.message);
+    }
   }
 
   const active = useMemo(() => profiles.filter((p) => p.is_active), [profiles]);

@@ -23,6 +23,7 @@ import {
   fromKey,
   mdLabel,
 } from "@/lib/shiftTime";
+import { monthlyHoursByEmployee, monthLabel, type ShiftHours } from "@/lib/hours";
 
 type PeriodStatus = "open" | "closed" | "published";
 type PreferenceType = "preferred" | "available" | "unavailable";
@@ -106,6 +107,9 @@ export default function OwnerScheduleBuilder() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [prefs, setPrefs] = useState<Preference[]>([]);
   const [confirmed, setConfirmed] = useState<Confirmed[]>([]);
+  // 月上限の比較用：選択期間が属する暦月の、同店舗「他期間」の確定シフト。
+  // 選択期間ぶんは confirmed を使うため、ここには含めない（二重計上を防ぐ）。
+  const [monthShifts, setMonthShifts] = useState<ShiftHours[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
@@ -217,6 +221,44 @@ export default function OwnerScheduleBuilder() {
     return out;
   }, [period]);
 
+  // この期間が触れる暦月（通常1つ、月跨ぎなら複数）。'YYYY-MM' 昇順。
+  const months = useMemo(() => {
+    const set = new Set(dates.map((d) => d.slice(0, 7)));
+    return [...set].sort();
+  }, [dates]);
+
+  // 依存を安定させるためのキー（配列は毎レンダ別参照になるため）
+  const monthsKey = months.join(",");
+  const storePeriodIdsKey = useMemo(
+    () => storePeriods.map((p) => p.id).join(","),
+    [storePeriods]
+  );
+
+  // 月上限の比較用：選択期間の暦月に属する「他期間」の確定シフトを取得。
+  useEffect(() => {
+    const monthsArr = monthsKey ? monthsKey.split(",") : [];
+    const otherIds = storePeriodIdsKey
+      ? storePeriodIdsKey.split(",").filter((id) => id && id !== periodId)
+      : [];
+    if (!periodId || monthsArr.length === 0 || otherIds.length === 0) {
+      setMonthShifts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("confirmed_shifts")
+        .select("employee_id, work_date, start_time, end_time")
+        .in("period_id", otherIds)
+        .gte("work_date", `${monthsArr[0]}-01`)
+        .lte("work_date", `${monthsArr[monthsArr.length - 1]}-31`);
+      if (!cancelled) setMonthShifts((data as ShiftHours[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [periodId, monthsKey, storePeriodIdsKey]);
+
   const prefsByDate = useMemo(() => {
     const m = new Map<string, Preference[]>();
     prefs.forEach((p) => {
@@ -236,15 +278,22 @@ export default function OwnerScheduleBuilder() {
     return m;
   }, [confirmed]);
 
-  // 従業員ごとの確定合計時間
-  const hoursByEmployee = useMemo(() => {
-    const m = new Map<string, number>();
-    confirmed.forEach((c) => {
-      const h = hoursBetween(c.start_time, c.end_time);
-      m.set(c.employee_id, (m.get(c.employee_id) ?? 0) + h);
-    });
-    return m;
-  }, [confirmed]);
+  // 従業員ごと×暦月の確定合計時間（月上限の比較に使う）。
+  // 選択期間ぶん(confirmed)＋同月の他期間ぶん(monthShifts)を合算するので、
+  // オーナーの編集も即時に月合計へ反映される。
+  const monthlyByEmployee = useMemo(
+    () =>
+      monthlyHoursByEmployee([
+        ...confirmed.map((c) => ({
+          employee_id: c.employee_id,
+          work_date: c.work_date,
+          start_time: c.start_time,
+          end_time: c.end_time,
+        })),
+        ...monthShifts,
+      ]),
+    [confirmed, monthShifts]
+  );
 
   // ---- 操作 --------------------------------------------------
   const addConfirmed = useCallback(
@@ -851,51 +900,64 @@ export default function OwnerScheduleBuilder() {
           )}
         </div>
 
-        {/* 合計時間パネル */}
+        {/* 合計時間パネル（暦月単位。月上限と比較） */}
         <aside className="lg:sticky lg:top-4 lg:self-start">
           <h2 className="mb-2 text-sm font-bold text-slate-700">
-            確定合計時間（期間）
+            確定合計時間（月）
           </h2>
           <ul className="space-y-1.5">
             {activeEmployees
-              .filter(
-                (e) => e.role === "employee" || (hoursByEmployee.get(e.id) ?? 0) > 0
-              )
+              .filter((e) => {
+                const byMonth = monthlyByEmployee.get(e.id);
+                const total = byMonth
+                  ? [...byMonth.values()].reduce((a, b) => a + b, 0)
+                  : 0;
+                return e.role === "employee" || total > 0;
+              })
               .map((e) => {
-                const h = hoursByEmployee.get(e.id) ?? 0;
+                const byMonth = monthlyByEmployee.get(e.id);
                 const cap = e.max_hours_per_month;
-                const over = cap != null && h > cap;
-                const near = cap != null && !over && h >= cap * 0.9;
                 return (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-sm"
+                    className="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-sm"
                   >
-                    <span className="truncate text-slate-700">
-                      {e.full_name}
-                      {e.employment_type === "part_time" && (
-                        <span className="ml-1 text-[10px] text-slate-400">
-                          P
-                        </span>
+                    <div className="flex items-center justify-between">
+                      <span className="truncate text-slate-700">
+                        {e.full_name}
+                        {e.employment_type === "part_time" && (
+                          <span className="ml-1 text-[10px] text-slate-400">
+                            P
+                          </span>
+                        )}
+                      </span>
+                      {/* 単月のときは右側に集約表示 */}
+                      {months.length === 1 && (
+                        <MonthHours h={byMonth?.get(months[0]) ?? 0} cap={cap} />
                       )}
-                    </span>
-                    <span
-                      className={`ml-2 shrink-0 font-medium ${
-                        over
-                          ? "text-rose-600"
-                          : near
-                          ? "text-amber-600"
-                          : "text-slate-500"
-                      }`}
-                    >
-                      {h}h{cap != null ? ` / ${cap}h` : ""}
-                    </span>
+                    </div>
+                    {/* 月跨ぎのときは月ごとに表示 */}
+                    {months.length > 1 && (
+                      <div className="mt-1 space-y-0.5">
+                        {months.map((ym) => (
+                          <div
+                            key={ym}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="text-slate-400">
+                              {monthLabel(ym)}
+                            </span>
+                            <MonthHours h={byMonth?.get(ym) ?? 0} cap={cap} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 );
               })}
           </ul>
           <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-            上限（扶養・契約）を超えると赤、9割以上で黄色。上限は従業員プロフィールで設定します。
+            暦月ごとの合計を月上限と比較（同じ月の他期間ぶんも合算）。上限超過で赤、9割以上で黄色。上限は従業員プロフィールで設定します。
           </p>
         </aside>
       </div>
@@ -906,6 +968,21 @@ export default function OwnerScheduleBuilder() {
 // 希望の並び順：希望→勤務可能→NG
 function rank(t: PreferenceType) {
   return t === "preferred" ? 0 : t === "available" ? 1 : 2;
+}
+
+// 月の合計時間を上限と比較して色分け表示（超過=赤 / 9割以上=黄 / それ以外=灰）
+function MonthHours({ h, cap }: { h: number; cap: number | null }) {
+  const over = cap != null && h > cap;
+  const near = cap != null && !over && h >= cap * 0.9;
+  return (
+    <span
+      className={`ml-2 shrink-0 font-medium ${
+        over ? "text-rose-600" : near ? "text-amber-600" : "text-slate-500"
+      }`}
+    >
+      {h}h{cap != null ? ` / ${cap}h` : ""}
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: PeriodStatus }) {

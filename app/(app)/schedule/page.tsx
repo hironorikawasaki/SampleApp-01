@@ -154,6 +154,7 @@ export default function OwnerScheduleBuilder() {
   const [confirmed, setConfirmed] = useState<Confirmed[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [confirmingPublish, setConfirmingPublish] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showNewPeriod, setShowNewPeriod] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
@@ -246,6 +247,7 @@ export default function OwnerScheduleBuilder() {
       setConfirmed(cf ?? []);
       setSelectedDate(null);
       setConfirmingPublish(false);
+      setConfirmingClose(false);
     })();
   }, [periodId]);
 
@@ -346,6 +348,7 @@ export default function OwnerScheduleBuilder() {
         prev.map((p) => (p.id === periodId ? { ...p, status } : p))
       );
       setConfirmingPublish(false);
+      setConfirmingClose(false);
     },
     [periodId]
   );
@@ -632,13 +635,46 @@ export default function OwnerScheduleBuilder() {
               削除
             </button>
           )}
-          {period.status === "open" && (
+          {period.status === "open" &&
+            (confirmingClose ? (
+              <span className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">
+                  受付を締め切りますか？
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStatus("closed")}
+                  className={BTN_PRIMARY}
+                >
+                  締め切る
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingClose(false)}
+                  className={BTN_GHOST}
+                >
+                  取消
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingClose(true);
+                  setConfirmingPublish(false);
+                }}
+                className={BTN_SECONDARY}
+              >
+                受付を締め切る
+              </button>
+            ))}
+          {period.status === "closed" && (
             <button
               type="button"
-              onClick={() => setStatus("closed")}
+              onClick={() => setStatus("open")}
               className={BTN_SECONDARY}
             >
-              受付を締め切る
+              受付を再開する
             </button>
           )}
           {period.status !== "published" ? (
@@ -663,7 +699,10 @@ export default function OwnerScheduleBuilder() {
             ) : (
               <button
                 type="button"
-                onClick={() => setConfirmingPublish(true)}
+                onClick={() => {
+                  setConfirmingPublish(true);
+                  setConfirmingClose(false);
+                }}
                 className={BTN_PRIMARY}
               >
                 確定を公開

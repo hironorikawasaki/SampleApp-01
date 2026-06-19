@@ -7,7 +7,8 @@
 //   - 許可済みで購読も存在すれば何も表示しない。拒否(denied)・非対応・
 //     VAPID未設定のときも表示しない。
 //   - ✕ で閉じるとそのセッション中は非表示（sessionStorage）。
-// 注意: Service Worker は本番のみ登録されるため、購読は本番(HTTPS)で有効。
+// 注意: 有効化時に Service Worker が未登録ならその場で登録する。secure context
+//       （HTTPS か localhost）が必要。iOS はホーム画面に追加した PWA のみ対応。
 // =============================================================
 
 import { useEffect, useState } from "react";
@@ -82,13 +83,10 @@ export default function PushToggle() {
         );
         return;
       }
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) {
-        setError(
-          "通知は本番環境（HTTPS・インストール済みPWA）で有効になります。"
-        );
-        return;
-      }
+      // SWが未登録ならこの場で登録する（本番では ServiceWorkerRegister が
+      // 既に登録済みのことが多いが、未登録でも購読できるようにする）。
+      const existingReg = await navigator.serviceWorker.getRegistration();
+      if (!existingReg) await navigator.serviceWorker.register("/sw.js");
       const ready = await navigator.serviceWorker.ready;
       const existing = await ready.pushManager.getSubscription();
       const sub =

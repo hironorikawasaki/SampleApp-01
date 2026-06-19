@@ -17,6 +17,11 @@ export default function ServiceWorkerRegister() {
         // 登録失敗は致命的ではないので握りつぶす
       });
     };
+    // すでに load 済みなら即登録（load イベントの取りこぼしを防ぐ）
+    if (document.readyState === "complete") {
+      onLoad();
+      return;
+    }
     window.addEventListener("load", onLoad);
     return () => window.removeEventListener("load", onLoad);
   }, []);

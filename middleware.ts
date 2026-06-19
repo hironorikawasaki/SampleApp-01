@@ -74,8 +74,10 @@ function copyCookies(res: NextResponse, from: NextResponse) {
 }
 
 export const config = {
-  // 静的アセットやAPIは保護対象外にする
+  // 静的アセット・Service Worker・マニフェストは保護対象外にする
+  // （/sw.js を保護すると SW スクリプト取得が /login にリダイレクトされ、
+  //   プッシュ通知もオフラインキャッシュも動かなくなるため必ず除外する）
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

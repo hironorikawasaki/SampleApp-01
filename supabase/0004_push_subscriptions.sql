@@ -1,10 +1,9 @@
 -- =============================================================
--- Web Push 用：プッシュ購読情報の保存テーブル
---   - 各従業員の端末（ブラウザ）ごとの購読を保存。
---   - 1端末 = 1 endpoint。endpoint を一意キーにして重複を防ぐ。
---   - 送信側（cron / API）は service_role で全件を読む（RLSをバイパス）。
+-- 0004_push_subscriptions — Web Push 用：プッシュ購読情報の保存
+--   - 各従業員の端末（ブラウザ）ごとの購読。1端末 = 1 endpoint。
+--   - 送信側（cron / API）は service_role で全件を読む（RLSバイパス）。
 --   - 本人は自分の購読のみ作成・削除できる。
--- Supabase の SQL Editor で実行してください（schema 適用後ならいつでも可）。
+-- 前提: 0001 適用後（いつでも可）。冪等。
 -- =============================================================
 
 create table if not exists push_subscriptions (
@@ -20,9 +19,12 @@ create index if not exists idx_push_sub_employee on push_subscriptions (employee
 
 alter table push_subscriptions enable row level security;
 
--- 本人は自分の購読のみ操作可（owner も自分の分のみ。送信は service_role）
 drop policy if exists "本人は自分のプッシュ購読を管理" on push_subscriptions;
 create policy "本人は自分のプッシュ購読を管理"
   on push_subscriptions for all
   using (employee_id = auth.uid())
   with check (employee_id = auth.uid());
+
+-- ----- 適用記録 ----------------------------------------------
+insert into schema_migrations (version) values ('0004_push_subscriptions')
+  on conflict (version) do nothing;

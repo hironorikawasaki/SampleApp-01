@@ -39,16 +39,16 @@
 
 ## 2. データベースを構築（SQL Editor で順番に実行）
 
-**Settings → SQL Editor** で、必ずこの順に貼り付けて実行する：
+**Settings → SQL Editor** で、`supabase/` の番号順に貼り付けて実行する：
 
-1. [ ] `supabase/shift_app_schema.sql` … 型・テーブル・RLS・トリガー一式
-2. [ ] `supabase/profiles_admin.sql` … プロフィール管理 RLS ＋ 権限昇格防止トリガー
-3. [ ] `supabase/multi_store.sql` … 店舗マスタ・所属・店舗別 RLS（既存無しでも可。`本店` を自動作成）
-4. [ ] `supabase/push_subscriptions.sql` … Web Push 購読テーブル
-5. [ ] `supabase/promote_owner.sql` … 最初のオーナーを昇格する管理関数（手順 7 で使用）
+1. [ ] `supabase/0001_init_schema.sql` … 型・テーブル・ビュー・RLS・トリガー一式
+2. [ ] `supabase/0002_profiles_admin.sql` … プロフィール管理 RLS ＋ 権限昇格防止トリガー
+3. [ ] `supabase/0003_multi_store.sql` … 店舗マスタ・所属・店舗別 RLS（`本店` を自動作成）
+4. [ ] `supabase/0004_push_subscriptions.sql` … Web Push 購読テーブル
+5. [ ] `supabase/0005_promote_owner.sql` … 最初のオーナーを昇格する管理関数（手順 7 で使用）
 
-> 順序が重要：`1 → 2` は前後不可。`promote_owner`(5) は `profiles_admin`(2) の
-> トリガー作成後でないと動かない。`multi_store`(3) は `1・2` の後。
+> すべて冪等（再実行可）。適用状況は `select * from schema_migrations;` で確認できる。
+> 詳細は [supabase/README.md](../supabase/README.md)。
 
 ## 3. 認証の設定（Supabase ダッシュボード）
 

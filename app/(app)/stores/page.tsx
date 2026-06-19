@@ -5,7 +5,7 @@
 //   - 店舗の作成・名称変更・有効/無効を管理
 //   - 従業員の店舗割り当ては /employees で行う
 // 依存: @/lib/supabaseClient
-// スキーマ: stores（multi_store.sql）
+// スキーマ: stores（0003_multi_store.sql）
 // =============================================================
 
 import { useEffect, useState } from "react";

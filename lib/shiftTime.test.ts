@@ -13,6 +13,8 @@ import {
   relativeDay,
   businessDayKey,
   clockLabel,
+  isoToDatetimeLocal,
+  datetimeLocalToIso,
 } from "./shiftTime";
 
 // 既定 config（openTime=20:00 / closeTime=03:00 / 30分刻み）前提のテスト。
@@ -133,5 +135,16 @@ describe("clockLabel", () => {
     // Z なし＝ローカル時刻として解釈されるため TZ非依存
     expect(clockLabel("2026-06-19T21:05:00")).toBe("21:05");
     expect(clockLabel("2026-06-19T02:09:00")).toBe("02:09");
+  });
+});
+
+describe("datetime-local 変換", () => {
+  it("local → ISO → local で往復一致（TZ非依存）", () => {
+    const local = "2026-06-19T21:30";
+    expect(isoToDatetimeLocal(datetimeLocalToIso(local))).toBe(local);
+  });
+  it("深夜の値も往復する", () => {
+    const local = "2026-06-20T02:15";
+    expect(isoToDatetimeLocal(datetimeLocalToIso(local))).toBe(local);
   });
 });

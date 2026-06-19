@@ -9,6 +9,7 @@
 | 3 | `0003_multi_store.sql` | 店舗・所属・店舗別 RLS（既存データは「本店」へ移行） |
 | 4 | `0004_push_subscriptions.sql` | Web Push 購読テーブル |
 | 5 | `0005_promote_owner.sql` | 最初のオーナーを昇格する管理関数 |
+| 6 | `0006_attendance.sql` | 実績勤怠（出退勤の打刻）＋RLS＋改ざん防止トリガー |
 
 ## 冪等（idempotent）
 

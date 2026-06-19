@@ -89,3 +89,23 @@ export function relativeDay(key: string): string | null {
   if (diff === 2) return "明後日";
   return null;
 }
+
+// 営業日(開店日)のキーを返す。深夜(closeTime より前)の打刻は前日の営業日に属する。
+//   例: 営業 20:00〜翌03:00 のとき、02:00 の打刻 → 前日の営業日。
+//   境界は closeTime（閉店〜開店の「営業していない時間帯」で日替わり）。
+export function businessDayKey(now: Date): string {
+  const [ch, cm] = config.closeTime.split(":").map(Number);
+  const closeMin = ch * 60 + cm;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const d = new Date(now);
+  if (nowMin < closeMin) d.setDate(d.getDate() - 1);
+  return toKey(d);
+}
+
+// 'HH:MM'（時刻のみ）。打刻時刻の表示に使う。
+export function clockLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes()
+  ).padStart(2, "0")}`;
+}

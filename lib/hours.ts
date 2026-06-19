@@ -36,3 +36,15 @@ export function monthlyHoursByEmployee(
 export function monthLabel(ym: string): string {
   return `${Number(ym.slice(5, 7))}月`;
 }
+
+// 打刻（実時刻 timestamptz）からの実労働時間。退勤前(null)や不正は 0。0.1h 単位。
+// 実時刻どうしの差なので日跨ぎの補正は不要。
+export function clockedHours(
+  clockIn: string,
+  clockOut: string | null
+): number {
+  if (!clockOut) return 0;
+  const ms = new Date(clockOut).getTime() - new Date(clockIn).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return round1(ms / 3600000);
+}

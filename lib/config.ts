@@ -11,7 +11,7 @@ export type ShiftPreset = { label: string; start: string; end: string };
 
 // 営業時間内のワンタップ定番シフト（既定）。
 // 店舗別に変える場合は NEXT_PUBLIC_SHIFT_PRESETS にJSON配列を設定する。
-const DEFAULT_PRESETS: ShiftPreset[] = [
+export const DEFAULT_PRESETS: ShiftPreset[] = [
   { label: "通し", start: "20:00", end: "03:00" },
   { label: "前半", start: "20:00", end: "00:00" },
   { label: "後半", start: "00:00", end: "03:00" },
@@ -19,20 +19,20 @@ const DEFAULT_PRESETS: ShiftPreset[] = [
   { label: "22→翌3", start: "22:00", end: "03:00" },
 ];
 
-// 空文字・未設定なら既定値
-function text(value: string | undefined, fallback: string): string {
+// 空文字・未設定なら既定値（テスト容易化のため公開）
+export function text(value: string | undefined, fallback: string): string {
   const v = value?.trim();
   return v ? v : fallback;
 }
 
 // 正の整数のみ採用。不正なら既定値
-function posInt(value: string | undefined, fallback: number): number {
+export function posInt(value: string | undefined, fallback: number): number {
   const n = value ? Number(value) : NaN;
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
 // JSON配列としてパースし、形が正しいときだけ採用。不正なら既定値
-function parsePresets(value: string | undefined): ShiftPreset[] {
+export function parsePresets(value: string | undefined): ShiftPreset[] {
   if (!value?.trim()) return DEFAULT_PRESETS;
   try {
     const parsed: unknown = JSON.parse(value);

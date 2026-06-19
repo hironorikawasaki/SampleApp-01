@@ -10,7 +10,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // 認証なしでアクセスできるパス
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /api は各ルートハンドラ側で認証する（cron はトークン認証のためログイン不要）
+const PUBLIC_PATHS = ["/login", "/auth", "/api"];
 
 export async function middleware(request: NextRequest) {
   // このレスポンスにCookieを書き込み、最終的に返す（公式パターン）
@@ -73,8 +74,10 @@ function copyCookies(res: NextResponse, from: NextResponse) {
 }
 
 export const config = {
-  // 静的アセットやAPIは保護対象外にする
+  // 静的アセット・Service Worker・マニフェストは保護対象外にする
+  // （/sw.js を保護すると SW スクリプト取得が /login にリダイレクトされ、
+  //   プッシュ通知もオフラインキャッシュも動かなくなるため必ず除外する）
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

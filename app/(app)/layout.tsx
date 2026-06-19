@@ -8,6 +8,7 @@ import AppNav from "@/components/AppNav";
 import SubmissionReminder, {
   type ReminderPeriod,
 } from "@/components/SubmissionReminder";
+import PushToggle from "@/components/PushToggle";
 
 export default async function AppLayout({
   children,
@@ -55,6 +56,7 @@ export default async function AppLayout({
     <div className="min-h-screen bg-slate-100">
       {/* 下タブ分の余白を確保 */}
       <main className="pb-20">
+        {role === "employee" && <PushToggle />}
         <SubmissionReminder periods={reminders} />
         {children}
       </main>

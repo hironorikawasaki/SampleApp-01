@@ -165,6 +165,54 @@ npm run dev
 
 ---
 
+## 9. Web Push（提出リマインドのプッシュ通知）
+
+アプリを閉じていても、未提出の従業員へ締切前にプッシュ通知を送る機能です。
+**Service Worker は本番のみ有効**なので、確認は `npm run build && npm start`
+かデプロイ環境で行います（iOS はホーム画面に追加した PWA のみ対応）。
+
+### 9-1. DB を用意
+SQL Editor で `supabase/push_subscriptions.sql` を実行（購読保存テーブル＋RLS）。
+
+### 9-2. VAPID 鍵を生成
+```bash
+npx web-push generate-vapid-keys
+```
+出力された Public Key / Private Key を控える。
+
+### 9-3. 環境変数を設定（`.env.local` と Vercel の両方）
+`.env.local.example` を参照。次の5つを追加する。
+
+```
+SUPABASE_SERVICE_ROLE_KEY=（Settings → API の service_role key・秘密）
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=（9-2 の public key）
+VAPID_PRIVATE_KEY=（9-2 の private key）
+VAPID_SUBJECT=mailto:you@example.com
+CRON_SECRET=（任意の長いランダム文字列）
+```
+
+> `SUPABASE_SERVICE_ROLE_KEY` と `VAPID_PRIVATE_KEY`、`CRON_SECRET` は秘密。
+> `NEXT_PUBLIC_` を付けない（クライアントに漏らさない）。
+
+### 9-4. 定期送信（cron）
+- **Vercel**：`vercel.json` に毎日0:00(UTC)の cron を定義済み。Vercel は
+  `CRON_SECRET` 設定時、`Authorization: Bearer <CRON_SECRET>` を自動付与するため、
+  環境変数を入れてデプロイすれば有効になる（Hobbyプランは1日1回まで）。
+- **手動テスト / 他基盤**：次のように送信APIを叩く。
+  ```bash
+  curl -H "Authorization: Bearer $CRON_SECRET" \
+    https://<本番ドメイン>/api/push/send-reminders
+  ```
+  返り値の `sent` が送信件数。`status=open` かつ締切が72時間以内で未提出の
+  従業員の購読に送られる（送信ウィンドウは route 内 `REMIND_WITHIN_HOURS`）。
+
+### 9-5. 動作確認
+1. 本番（または `npm start`）で従業員ログイン → 上部の「通知をオンにする」を許可。
+2. オーナーで、締切が3日以内の提出期間を用意（未提出状態にしておく）。
+3. 9-4 の `curl` を実行 → 端末にプッシュ通知が届く。タップで `/availability` を開く。
+
+---
+
 ## 補足メモ
 
 - **無料プランの一時停止**：1週間アクセスがないとDBが停止する。GitHub Actions で
@@ -185,9 +233,10 @@ npm run dev
 - 提出期間（shift_periods）の作成・締切・公開UI（`/schedule`）
 - 希望提出のリマインド通知（アプリ内バナー / `components/SubmissionReminder.tsx`）
 - シフトのCSV出力（Excel対応・UTF-8 BOM付き / `/schedule`）
+- 希望提出リマインドの Web Push 化（手順9。`components/PushToggle.tsx` /
+  `app/api/push/*` / `public/sw.js` / `supabase/push_subscriptions.sql`）
 
 ## まだ無い機能（必要になったら）
 
-- 希望提出リマインドの Web Push 化（端末への本物のプッシュ通知）
 - 複数店舗対応（スキーマ変更を伴う）
 ```

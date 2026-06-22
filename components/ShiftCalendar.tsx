@@ -93,6 +93,23 @@ export default function ShiftCalendar({
     return m;
   }, [shifts]);
 
+  // 日ごとの出勤者（重複排除・開始時刻順）
+  const namesByDate = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; start: string }[]>();
+    for (const s of shifts) {
+      const a = m.get(s.work_date) ?? [];
+      if (!a.some((x) => x.id === s.employee_id))
+        a.push({
+          id: s.employee_id,
+          name: nameOf(s.employee_id),
+          start: s.start_time,
+        });
+      m.set(s.work_date, a);
+    }
+    for (const a of m.values()) a.sort((x, y) => x.start.localeCompare(y.start));
+    return m;
+  }, [shifts, nameOf]);
+
   const weeks = useMemo(() => buildWeeks(anchor), [anchor]);
   const monthLabel = `${anchor.getFullYear()}年${anchor.getMonth() + 1}月`;
 
@@ -172,9 +189,9 @@ export default function ShiftCalendar({
         {weeks.flat().map(({ key, inMonth, day }) => {
           const active = inMonth && inHalf(day, half);
           if (!active) {
-            return <div key={key} className="aspect-square" aria-hidden />;
+            return <div key={key} className="min-h-[4.75rem]" aria-hidden />;
           }
-          const count = headcount(key);
+          const names = namesByDate.get(key) ?? [];
           const hasNote = Boolean(dayNotes[key]);
           const isSel = key === selected;
           return (
@@ -182,32 +199,46 @@ export default function ShiftCalendar({
               key={key}
               type="button"
               onClick={() => setSelected(isSel ? null : key)}
-              className={`relative flex aspect-square flex-col items-center justify-start rounded-xl border p-1 text-sm transition ${
+              className={`relative flex min-h-[4.75rem] flex-col items-stretch rounded-xl border p-1 text-left transition ${
                 isSel
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : count > 0
-                  ? "border-slate-300 bg-white text-slate-900 hover:border-slate-400"
-                  : "border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-300"
+                  ? "border-slate-900 bg-white ring-2 ring-slate-900"
+                  : names.length > 0
+                  ? "border-slate-300 bg-white hover:border-slate-400"
+                  : "border-slate-100 bg-slate-50 hover:border-slate-300"
               }`}
             >
-              <span className="mt-0.5">{day}</span>
+              <span
+                className={`text-xs font-semibold ${
+                  names.length ? "text-slate-900" : "text-slate-400"
+                }`}
+              >
+                {day}
+              </span>
               {hasNote && (
                 <span
-                  className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${
-                    isSel ? "bg-amber-300" : "bg-amber-400"
-                  }`}
+                  className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-400"
                   aria-label="備考あり"
                 />
               )}
-              {count > 0 && (
-                <span
-                  className={`mt-auto mb-0.5 rounded-full px-1.5 text-[11px] font-semibold ${
-                    isSel ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {count}人
-                </span>
-              )}
+              <div className="mt-0.5 space-y-px overflow-hidden">
+                {names.slice(0, 4).map((n) => (
+                  <div
+                    key={n.id}
+                    className={`truncate rounded px-1 text-[10px] leading-tight ${
+                      n.id === highlightEmployeeId
+                        ? "bg-slate-900 font-bold text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {n.name}
+                  </div>
+                ))}
+                {names.length > 4 && (
+                  <div className="px-1 text-[10px] leading-tight text-slate-400">
+                    ＋{names.length - 4}人
+                  </div>
+                )}
+              </div>
             </button>
           );
         })}

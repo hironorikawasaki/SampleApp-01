@@ -24,6 +24,7 @@ export default function AppNav({ role }: { role: Role }) {
     role === "owner"
       ? [
           { href: "/schedule", label: "シフト作成", icon: <GridIcon /> },
+          { href: "/calendar", label: "カレンダー", icon: <CalendarIcon /> },
           { href: "/timecards", label: "勤怠", icon: <ClockIcon /> },
           { href: "/employees", label: "従業員管理", icon: <UsersIcon /> },
           { href: "/stores", label: "店舗管理", icon: <StoreIcon /> },

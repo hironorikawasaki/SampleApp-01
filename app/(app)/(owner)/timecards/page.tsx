@@ -320,8 +320,28 @@ export default function OwnerTimecards() {
               rangeStart={period.start_date}
               rangeEnd={period.end_date}
               badge={(key) => {
-                const n = recordsByDate.get(key)?.length ?? 0;
-                return n > 0 ? `${n}件` : null;
+                const recs = recordsByDate.get(key) ?? [];
+                if (recs.length === 0) return null;
+                const names = [...new Set(recs.map((r) => r.employee_id))].map(
+                  (id) => profilesById.get(id)?.full_name ?? "不明"
+                );
+                return (
+                  <div className="space-y-px">
+                    {names.slice(0, 4).map((nm, i) => (
+                      <div
+                        key={i}
+                        className="truncate rounded bg-slate-100 px-1 text-[10px] leading-tight text-slate-600"
+                      >
+                        {nm}
+                      </div>
+                    ))}
+                    {names.length > 4 && (
+                      <div className="px-1 text-[10px] text-slate-400">
+                        ＋{names.length - 4}人
+                      </div>
+                    )}
+                  </div>
+                );
               }}
             />
 

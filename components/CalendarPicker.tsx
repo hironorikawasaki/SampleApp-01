@@ -102,7 +102,7 @@ export default function CalendarPicker({
         {weeks.flat().map(({ key, inMonth, day }) => {
           const inRange = inMonth && key >= rangeStart && key <= rangeEnd;
           if (!inMonth) {
-            return <div key={key} className="aspect-square" aria-hidden />;
+            return <div key={key} className="min-h-[4.75rem]" aria-hidden />;
           }
           const isSel = key === selected;
           return (
@@ -111,19 +111,17 @@ export default function CalendarPicker({
               type="button"
               disabled={!inRange}
               onClick={() => onSelect(key)}
-              className={`flex aspect-square flex-col items-center justify-start rounded-xl border p-1 text-sm transition ${
+              className={`flex min-h-[4.75rem] flex-col items-stretch rounded-xl border p-1 text-left text-sm transition ${
                 isSel
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-slate-900 bg-white text-slate-900 ring-2 ring-slate-900"
                   : inRange
                   ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
                   : "cursor-default border-transparent bg-transparent text-slate-300"
               }`}
             >
-              <span className="mt-0.5">{day}</span>
+              <span className="text-xs font-semibold">{day}</span>
               {inRange && badge && (
-                <span className="mt-auto mb-0.5 w-full px-0.5 text-center text-[10px] leading-tight">
-                  {badge(key)}
-                </span>
+                <div className="mt-0.5 w-full overflow-hidden">{badge(key)}</div>
               )}
             </button>
           );

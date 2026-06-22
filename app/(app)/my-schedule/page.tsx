@@ -19,6 +19,7 @@ import {
   fullDate,
   relativeDay,
 } from "@/lib/shiftTime";
+import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
 
 interface ShiftPeriod {
   id: string;
@@ -46,6 +47,10 @@ export default function MyScheduleView() {
   const [userId, setUserId] = useState<string | null>(null);
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [storeId, setStoreId] = useState<string | null>(null);
+  const [view, setView] = useState<"list" | "calendar">("list");
+  const [calShifts, setCalShifts] = useState<CalendarShift[]>([]);
+  const [calNames, setCalNames] = useState<Map<string, string>>(new Map());
+  const [calDayNotes, setCalDayNotes] = useState<Record<string, string>>({});
 
   // 公開済み期間の取得（現在を含む期間を既定に）
   useEffect(() => {
@@ -110,6 +115,45 @@ export default function MyScheduleView() {
       else setShifts(data ?? []);
     })();
   }, [periodId, userId]);
+
+  // カレンダー用：選択店舗の公開済みシフト（同僚含む）＋氏名＋日別備考
+  useEffect(() => {
+    if (!storeId) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: cf }, { data: nm }, { data: notes }] = await Promise.all([
+        supabase
+          .from("confirmed_shifts")
+          .select(
+            "work_date,employee_id,start_time,end_time,position,shift_periods!inner(store_id,status)"
+          )
+          .eq("shift_periods.store_id", storeId)
+          .eq("shift_periods.status", "published"),
+        supabase.from("coworker_profiles").select("id,full_name"),
+        supabase
+          .from("day_notes")
+          .select("work_date,note")
+          .eq("store_id", storeId),
+      ]);
+      if (cancelled) return;
+      setCalShifts(
+        (cf ?? []).map((r: any) => ({
+          work_date: r.work_date,
+          employee_id: r.employee_id,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          position: r.position,
+        }))
+      );
+      setCalNames(new Map((nm ?? []).map((p: any) => [p.id, p.full_name])));
+      const noteMap: Record<string, string> = {};
+      for (const n of notes ?? []) noteMap[n.work_date] = n.note;
+      setCalDayNotes(noteMap);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId]);
 
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
@@ -215,14 +259,42 @@ export default function MyScheduleView() {
             )}
           </div>
         </div>
-        {period && (
+        {period && view === "list" && (
           <p className="mt-1 text-sm text-slate-500">
             {period.title}（{period.start_date}〜{period.end_date}）・ 合計{" "}
             <span className="font-semibold text-slate-700">{totalHours}h</span>
           </p>
         )}
+        <div className="mt-2 flex w-fit rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+          {(
+            [
+              ["list", "リスト"],
+              ["calendar", "カレンダー"],
+            ] as ["list" | "calendar", string][]
+          ).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setView(m)}
+              className={`rounded-md px-3 py-1 transition ${
+                view === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </header>
 
+      {view === "calendar" ? (
+        <ShiftCalendar
+          shifts={calShifts}
+          nameOf={(id) => calNames.get(id) ?? "同僚"}
+          dayNotes={calDayNotes}
+          highlightEmployeeId={userId ?? undefined}
+        />
+      ) : (
+        <>
       {/* 次の出勤 */}
       {nextShift && (
         <div className="mb-5 rounded-2xl bg-slate-900 p-4 text-white">
@@ -307,6 +379,8 @@ export default function MyScheduleView() {
             );
           })}
         </ul>
+      )}
+        </>
       )}
     </div>
   );

@@ -782,6 +782,22 @@ export default function OwnerScheduleBuilder() {
         </div>
       </header>
 
+      {/* 公開状態のガイド（下書き＝未公開で編集中） */}
+      <p
+        className={`mb-4 rounded-lg border px-3 py-2 text-xs ${
+          period.status === "published"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-amber-200 bg-amber-50 text-amber-800"
+        }`}
+      >
+        {period.status === "open" &&
+          "受付中：従業員が希望を提出中です。確定シフトは公開するまで従業員に表示されません。"}
+        {period.status === "closed" &&
+          "下書き（未公開）：確定シフトを編集中です。従業員にはまだ表示されません。「確定を公開」で公開できます。"}
+        {period.status === "published" &&
+          "公開済み：確定シフトは従業員に表示されています。編集するには「公開を取り下げて編集」で下書きに戻せます。"}
+      </p>
+
       {error && (
         <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {error}
@@ -1126,7 +1142,7 @@ function MonthHours({ h, cap }: { h: number; cap: number | null }) {
 function StatusBadge({ status }: { status: PeriodStatus }) {
   const map: Record<PeriodStatus, { label: string; cls: string }> = {
     open: { label: "受付中", cls: "bg-emerald-100 text-emerald-700" },
-    closed: { label: "締切・調整中", cls: "bg-amber-100 text-amber-700" },
+    closed: { label: "下書き（未公開）", cls: "bg-amber-100 text-amber-800" },
     published: { label: "公開済み", cls: "bg-slate-200 text-slate-700" },
   };
   return (

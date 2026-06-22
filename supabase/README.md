@@ -10,6 +10,7 @@
 | 4 | `0004_push_subscriptions.sql` | Web Push 購読テーブル |
 | 5 | `0005_promote_owner.sql` | 最初のオーナーを昇格する管理関数 |
 | 6 | `0006_attendance.sql` | 実績勤怠（出退勤の打刻）＋RLS＋改ざん防止トリガー |
+| 7 | `0007_calendar_foundation.sql` | 日別備考 `day_notes` ／同僚の確定シフト閲覧RLS（公開済み×同店舗）／氏名ビュー `coworker_profiles` |
 
 ## 冪等（idempotent）
 

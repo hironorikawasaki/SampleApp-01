@@ -67,11 +67,14 @@ export default function ShiftCalendar({
   nameOf,
   dayNotes = {},
   highlightEmployeeId,
+  onSaveNote,
 }: {
   shifts: CalendarShift[];
   nameOf: (employeeId: string) => string;
   dayNotes?: Record<string, string>;
   highlightEmployeeId?: string;
+  // 渡すと備考を編集可能にする（オーナー用）。成功時 null、失敗時メッセージを返す。
+  onSaveNote?: (dateKey: string, note: string) => Promise<string | null>;
 }) {
   const [anchor, setAnchor] = useState(() => {
     const d = new Date();
@@ -219,10 +222,18 @@ export default function ShiftCalendar({
               {headcount(selected)}人
             </span>
           </h3>
-          {dayNotes[selected] && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {dayNotes[selected]}
-            </p>
+          {onSaveNote ? (
+            <DayNoteEditor
+              key={selected}
+              initial={dayNotes[selected] ?? ""}
+              onSave={(note) => onSaveNote(selected, note)}
+            />
+          ) : (
+            dayNotes[selected] && (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {dayNotes[selected]}
+              </p>
+            )
           )}
           {daySelected.length === 0 ? (
             <p className="mt-2 text-sm text-slate-400">出勤予定はありません。</p>
@@ -272,6 +283,56 @@ export default function ShiftCalendar({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// 日別備考の編集（オーナー用）。空にして保存すると備考を削除。
+function DayNoteEditor({
+  initial,
+  onSave,
+}: {
+  initial: string;
+  onSave: (note: string) => Promise<string | null>;
+}) {
+  const [text, setText] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    const err = await onSave(text.trim());
+    setSaving(false);
+    setMsg(err ?? "保存しました");
+  }
+
+  return (
+    <div className="mt-2">
+      <label className="mb-1 block text-xs font-medium text-slate-500">
+        この日の備考（例：誕生日・出勤初日）
+      </label>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setMsg(null);
+        }}
+        rows={2}
+        placeholder="空欄で保存すると削除します"
+        className="w-full min-w-0 resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+      />
+      <div className="mt-1.5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || text.trim() === initial.trim()}
+          className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+        >
+          {saving ? "保存中…" : "備考を保存"}
+        </button>
+        {msg && <span className="text-xs text-slate-500">{msg}</span>}
+      </div>
     </div>
   );
 }

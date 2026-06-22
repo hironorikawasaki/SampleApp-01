@@ -92,6 +92,37 @@ export default function OwnerCalendar() {
     [names]
   );
 
+  // 日別備考の保存（空文字なら削除）。成功時 null、失敗時メッセージ。
+  async function saveNote(dateKey: string, note: string): Promise<string | null> {
+    if (!storeId) return "店舗が選択されていません。";
+    if (note === "") {
+      const { error: e } = await supabase
+        .from("day_notes")
+        .delete()
+        .eq("store_id", storeId)
+        .eq("work_date", dateKey);
+      if (e) return e.message;
+      setDayNotes((prev) => {
+        const next = { ...prev };
+        delete next[dateKey];
+        return next;
+      });
+      return null;
+    }
+    const { error: e } = await supabase.from("day_notes").upsert(
+      {
+        store_id: storeId,
+        work_date: dateKey,
+        note,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "store_id,work_date" }
+    );
+    if (e) return e.message;
+    setDayNotes((prev) => ({ ...prev, [dateKey]: note }));
+    return null;
+  }
+
   if (loading)
     return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
   if (error)
@@ -121,7 +152,12 @@ export default function OwnerCalendar() {
           店舗がありません。「店舗管理」で作成してください。
         </p>
       ) : (
-        <ShiftCalendar shifts={shifts} nameOf={nameOf} dayNotes={dayNotes} />
+        <ShiftCalendar
+          shifts={shifts}
+          nameOf={nameOf}
+          dayNotes={dayNotes}
+          onSaveNote={saveNote}
+        />
       )}
     </div>
   );

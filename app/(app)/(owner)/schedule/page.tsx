@@ -121,6 +121,7 @@ export default function OwnerScheduleBuilder() {
   const [memberships, setMemberships] = useState<Set<string>>(new Set());
   const [showEditPeriod, setShowEditPeriod] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
 
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
@@ -278,6 +279,41 @@ export default function OwnerScheduleBuilder() {
     });
     return m;
   }, [confirmed]);
+
+  // 希望と確定の差分（オーナーの確認用）。所属従業員×期間日で判定。
+  //   ng         : NG(休み希望)の日に確定が入っている
+  //   unconfirmed: 希望/勤務可能を出したが確定が無い
+  //   noRequest  : 希望未提出なのに確定が入っている
+  const diff = useMemo(() => {
+    const prefMap = new Map<string, Preference[]>();
+    prefs.forEach((p) => {
+      const k = `${p.employee_id}|${p.work_date}`;
+      const a = prefMap.get(k) ?? [];
+      a.push(p);
+      prefMap.set(k, a);
+    });
+    const confSet = new Set(
+      confirmed.map((c) => `${c.employee_id}|${c.work_date}`)
+    );
+    const ng: { empId: string; date: string }[] = [];
+    const unconfirmed: { empId: string; date: string }[] = [];
+    const noRequest: { empId: string; date: string }[] = [];
+    for (const e of activeEmployees) {
+      for (const d of dates) {
+        const ps = prefMap.get(`${e.id}|${d}`) ?? [];
+        const hasConf = confSet.has(`${e.id}|${d}`);
+        const hasUnavail = ps.some((p) => p.preference === "unavailable");
+        const hasWant = ps.some(
+          (p) => p.preference === "preferred" || p.preference === "available"
+        );
+        if (hasConf && hasUnavail) ng.push({ empId: e.id, date: d });
+        else if (hasWant && !hasConf) unconfirmed.push({ empId: e.id, date: d });
+        else if (hasConf && ps.length === 0)
+          noRequest.push({ empId: e.id, date: d });
+      }
+    }
+    return { ng, unconfirmed, noRequest };
+  }, [prefs, confirmed, activeEmployees, dates]);
 
   // 従業員ごと×暦月の確定合計時間（月上限の比較に使う）。
   // 選択期間ぶん(confirmed)＋同月の他期間ぶん(monthShifts)を合算するので、
@@ -600,6 +636,14 @@ export default function OwnerScheduleBuilder() {
           </button>
           <button
             type="button"
+            onClick={() => setShowDiff((v) => !v)}
+            className={BTN_SECONDARY}
+            aria-pressed={showDiff}
+          >
+            差分{showDiff ? "を隠す" : "を確認"}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setShowNewPeriod((v) => !v);
               setShowEditPeriod(false);
@@ -769,6 +813,13 @@ export default function OwnerScheduleBuilder() {
             onCancel={() => setShowEditPeriod(false)}
           />
         </div>
+      )}
+
+      {showDiff && (
+        <PreferenceDiff
+          diff={diff}
+          nameOf={(id) => profilesById.get(id)?.full_name ?? "不明"}
+        />
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -961,6 +1012,92 @@ export default function OwnerScheduleBuilder() {
             暦月ごとの合計を月上限と比較（同じ月の他期間ぶんも合算）。上限超過で赤、9割以上で黄色。上限は従業員プロフィールで設定します。
           </p>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+// 希望と確定の差分パネル
+function PreferenceDiff({
+  diff,
+  nameOf,
+}: {
+  diff: {
+    ng: { empId: string; date: string }[];
+    unconfirmed: { empId: string; date: string }[];
+    noRequest: { empId: string; date: string }[];
+  };
+  nameOf: (id: string) => string;
+}) {
+  const Section = ({
+    title,
+    desc,
+    items,
+    tone,
+  }: {
+    title: string;
+    desc: string;
+    items: { empId: string; date: string }[];
+    tone: "rose" | "amber" | "slate";
+  }) => {
+    const toneCls = {
+      rose: "border-rose-200 bg-rose-50 text-rose-700",
+      amber: "border-amber-200 bg-amber-50 text-amber-800",
+      slate: "border-slate-200 bg-slate-50 text-slate-600",
+    }[tone];
+    const sorted = [...items].sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : nameOf(a.empId).localeCompare(nameOf(b.empId))
+    );
+    return (
+      <div className={`rounded-xl border p-3 ${toneCls}`}>
+        <p className="text-sm font-bold">
+          {title}
+          <span className="ml-1 text-xs font-normal">{items.length}件</span>
+        </p>
+        <p className="mt-0.5 text-[11px] opacity-80">{desc}</p>
+        {sorted.length === 0 ? (
+          <p className="mt-2 text-xs opacity-70">なし</p>
+        ) : (
+          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pr-1">
+            {sorted.map((x) => (
+              <li
+                key={`${x.empId}|${x.date}`}
+                className="flex items-center justify-between rounded bg-white/60 px-2 py-1 text-xs"
+              >
+                <span className="truncate font-medium">{nameOf(x.empId)}</span>
+                <span className="ml-2 shrink-0">{mdLabel(x.date)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="mb-3 text-sm font-bold text-slate-700">希望と確定の差分</h2>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Section
+          title="NG日に割当"
+          desc="休み希望の日に確定が入っています"
+          items={diff.ng}
+          tone="rose"
+        />
+        <Section
+          title="希望あり・未確定"
+          desc="希望/勤務可能だが確定が無い"
+          items={diff.unconfirmed}
+          tone="amber"
+        />
+        <Section
+          title="希望なしで確定"
+          desc="希望未提出だが確定が入っている"
+          items={diff.noRequest}
+          tone="slate"
+        />
       </div>
     </div>
   );

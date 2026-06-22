@@ -19,6 +19,7 @@ import {
   datetimeLocalToIso,
 } from "@/lib/shiftTime";
 import { clockedHours } from "@/lib/hours";
+import CalendarPicker from "@/components/CalendarPicker";
 
 interface Profile {
   id: string;
@@ -60,6 +61,12 @@ export default function OwnerTimecards() {
   const [storeId, setStoreId] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<Set<string>>(new Set());
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // 期間を切り替えたら選択日をリセット
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [periodId]);
 
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
@@ -214,15 +221,15 @@ export default function OwnerTimecards() {
     [storeId]
   );
 
-  // 営業日ごとにまとめる
-  const byDate = useMemo(() => {
+  // 営業日ごとにまとめる（バッジ件数・選択日の打刻に使う）
+  const recordsByDate = useMemo(() => {
     const m = new Map<string, AttendanceRecord[]>();
     records.forEach((r) => {
       const a = m.get(r.work_date) ?? [];
       a.push(r);
       m.set(r.work_date, a);
     });
-    return [...m.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+    return m;
   }, [records]);
 
   // 従業員ごとの実労働時間（期間合計）
@@ -255,6 +262,10 @@ export default function OwnerTimecards() {
         </p>
       </div>
     );
+
+  const selectedDayRecords = selectedDate
+    ? recordsByDate.get(selectedDate) ?? []
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -302,38 +313,53 @@ export default function OwnerTimecards() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="min-w-0">
-            {/* 手動追加 */}
-            <ManualAdd
-              employees={activeEmployees}
-              defaultDate={period.start_date}
-              onAdd={addRecord}
+            {/* 日付カレンダー（その日を選んで下で確認・修正） */}
+            <CalendarPicker
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              rangeStart={period.start_date}
+              rangeEnd={period.end_date}
+              badge={(key) => {
+                const n = recordsByDate.get(key)?.length ?? 0;
+                return n > 0 ? `${n}件` : null;
+              }}
             />
 
-            {/* 日別の打刻 */}
-            {byDate.length === 0 ? (
+            {!selectedDate ? (
               <p className="mt-4 rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400">
-                この期間の打刻はまだありません。
+                日付を選ぶと、その日の打刻を確認・修正・追加できます。
               </p>
             ) : (
-              <div className="mt-4 space-y-4">
-                {byDate.map(([date, items]) => (
-                  <section key={date}>
-                    <h2 className="mb-2 text-sm font-bold text-slate-700">
-                      {mdLabel(date)}
-                    </h2>
-                    <ul className="space-y-2">
-                      {items.map((r) => (
-                        <RecordRow
-                          key={r.id}
-                          row={r}
-                          name={profilesById.get(r.employee_id)?.full_name ?? "不明"}
-                          onUpdate={updateRecord}
-                          onRemove={removeRecord}
-                        />
-                      ))}
-                    </ul>
-                  </section>
-                ))}
+              <div className="mt-4">
+                <h2 className="mb-2 text-sm font-bold text-slate-700">
+                  {mdLabel(selectedDate)} の打刻
+                </h2>
+                {/* 手動追加（選択日） */}
+                <ManualAdd
+                  key={selectedDate}
+                  employees={activeEmployees}
+                  defaultDate={selectedDate}
+                  onAdd={addRecord}
+                />
+                {selectedDayRecords.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-400">
+                    この日の打刻はありません。
+                  </p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {selectedDayRecords.map((r) => (
+                      <RecordRow
+                        key={r.id}
+                        row={r}
+                        name={
+                          profilesById.get(r.employee_id)?.full_name ?? "不明"
+                        }
+                        onUpdate={updateRecord}
+                        onRemove={removeRecord}
+                      />
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>

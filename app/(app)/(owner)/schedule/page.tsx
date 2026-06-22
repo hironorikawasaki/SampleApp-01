@@ -24,6 +24,7 @@ import {
   mdLabel,
 } from "@/lib/shiftTime";
 import { monthlyHoursByEmployee, monthLabel, type ShiftHours } from "@/lib/hours";
+import CalendarPicker from "@/components/CalendarPicker";
 
 type PeriodStatus = "open" | "closed" | "published";
 type PreferenceType = "preferred" | "available" | "unavailable";
@@ -772,36 +773,22 @@ export default function OwnerScheduleBuilder() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">
-          {/* 日付ストリップ */}
-          <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
-            {dates.map((key) => {
-              const pc = (prefsByDate.get(key) ?? []).filter(
-                (p) => p.preference !== "unavailable"
-              ).length;
-              const cc = (confirmedByDate.get(key) ?? []).length;
-              const active = key === selectedDate;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelectedDate(key)}
-                  className={`flex shrink-0 flex-col items-center rounded-xl border px-3 py-2 text-sm transition ${
-                    active
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                  }`}
-                >
-                  <span className="font-semibold">{mdLabel(key)}</span>
-                  <span
-                    className={`mt-0.5 text-[11px] ${
-                      active ? "text-slate-200" : "text-slate-400"
-                    }`}
-                  >
-                    希望{pc}・確定{cc}
-                  </span>
-                </button>
-              );
-            })}
+          {/* 日付カレンダー（その日を選んで下で編集） */}
+          <div className="mb-4">
+            <CalendarPicker
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              rangeStart={period.start_date}
+              rangeEnd={period.end_date}
+              badge={(key) => {
+                const pc = (prefsByDate.get(key) ?? []).filter(
+                  (p) => p.preference !== "unavailable"
+                ).length;
+                const cc = (confirmedByDate.get(key) ?? []).length;
+                if (pc === 0 && cc === 0) return null;
+                return `希${pc}・確${cc}`;
+              }}
+            />
           </div>
 
           {!selectedDate ? (

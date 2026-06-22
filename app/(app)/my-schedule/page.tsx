@@ -20,6 +20,7 @@ import {
   relativeDay,
 } from "@/lib/shiftTime";
 import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
+import { clockedHours } from "@/lib/hours";
 
 interface ShiftPeriod {
   id: string;
@@ -51,6 +52,9 @@ export default function MyScheduleView() {
   const [calShifts, setCalShifts] = useState<CalendarShift[]>([]);
   const [calNames, setCalNames] = useState<Map<string, string>>(new Map());
   const [calDayNotes, setCalDayNotes] = useState<Record<string, string>>({});
+  const [attendance, setAttendance] = useState<
+    { work_date: string; clock_in: string; clock_out: string | null }[]
+  >([]);
 
   // 公開済み期間の取得（現在を含む期間を既定に）
   useEffect(() => {
@@ -155,6 +159,23 @@ export default function MyScheduleView() {
     };
   }, [storeId]);
 
+  // 本人の実績打刻（選択店舗）を読み込む
+  useEffect(() => {
+    if (!userId || !storeId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("attendance_records")
+        .select("work_date,clock_in,clock_out")
+        .eq("employee_id", userId)
+        .eq("store_id", storeId);
+      if (!cancelled) setAttendance(data ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, storeId]);
+
   const period = useMemo(
     () => periods.find((p) => p.id === periodId) ?? null,
     [periods, periodId]
@@ -179,6 +200,29 @@ export default function MyScheduleView() {
         shifts.reduce((s, c) => s + hoursBetween(c.start_time, c.end_time), 0) * 10
       ) / 10,
     [shifts]
+  );
+
+  // 実績（打刻ベース）：選択期間の合計と今月の合計
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const periodActual = useMemo(() => {
+    if (!period) return 0;
+    return round1(
+      attendance
+        .filter(
+          (a) => a.work_date >= period.start_date && a.work_date <= period.end_date
+        )
+        .reduce((s, a) => s + clockedHours(a.clock_in, a.clock_out), 0)
+    );
+  }, [attendance, period]);
+  const currentYm = todayKey().slice(0, 7);
+  const monthActual = useMemo(
+    () =>
+      round1(
+        attendance
+          .filter((a) => a.work_date.slice(0, 7) === currentYm)
+          .reduce((s, a) => s + clockedHours(a.clock_in, a.clock_out), 0)
+      ),
+    [attendance, currentYm]
   );
 
   const tk = todayKey();
@@ -285,6 +329,26 @@ export default function MyScheduleView() {
           ))}
         </div>
       </header>
+
+      {/* 実績（打刻ベース）の合計 */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] text-slate-400">実績（この期間）</p>
+          <p className="text-lg font-bold text-slate-900">
+            {periodActual}
+            <span className="ml-0.5 text-xs font-normal text-slate-400">h</span>
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] text-slate-400">
+            実績（今月 {Number(currentYm.slice(5, 7))}月）
+          </p>
+          <p className="text-lg font-bold text-slate-900">
+            {monthActual}
+            <span className="ml-0.5 text-xs font-normal text-slate-400">h</span>
+          </p>
+        </div>
+      </div>
 
       {view === "calendar" ? (
         <ShiftCalendar

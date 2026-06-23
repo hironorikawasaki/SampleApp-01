@@ -18,6 +18,7 @@ import {
   fromKey,
   fullDate,
   relativeDay,
+  clockLabel,
 } from "@/lib/shiftTime";
 import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
 import { roundedClockedHours } from "@/lib/hours";
@@ -231,16 +232,35 @@ export default function MyScheduleView() {
     [shifts, tk]
   );
 
-  // 日付ごとにまとめる
-  const byDate = useMemo(() => {
-    const m = new Map<string, Confirmed[]>();
+  // 日付ごとに「予定（確定シフト）」と「実績（打刻）」をまとめる
+  const daysView = useMemo(() => {
+    const plan = new Map<string, Confirmed[]>();
     shifts.forEach((s) => {
-      const a = m.get(s.work_date) ?? [];
+      const a = plan.get(s.work_date) ?? [];
       a.push(s);
-      m.set(s.work_date, a);
+      plan.set(s.work_date, a);
     });
-    return Array.from(m.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  }, [shifts]);
+    const act = new Map<string, typeof attendance>();
+    attendance.forEach((a) => {
+      if (period && (a.work_date < period.start_date || a.work_date > period.end_date))
+        return;
+      const arr = act.get(a.work_date) ?? [];
+      arr.push(a);
+      act.set(a.work_date, arr);
+    });
+    const dates = new Set<string>([...plan.keys(), ...act.keys()]);
+    return [...dates]
+      .sort()
+      .map((date) => ({
+        date,
+        planned: (plan.get(date) ?? [])
+          .slice()
+          .sort((a, b) => a.start_time.localeCompare(b.start_time)),
+        actual: (act.get(date) ?? [])
+          .slice()
+          .sort((a, b) => a.clock_in.localeCompare(b.clock_in)),
+      }));
+  }, [shifts, attendance, period]);
 
   // ---- 描画 --------------------------------------------------
   if (loading)
@@ -385,14 +405,14 @@ export default function MyScheduleView() {
         </div>
       )}
 
-      {/* 全日程 */}
-      {byDate.length === 0 ? (
+      {/* 全日程（予定＝確定シフト／実績＝打刻 を縦に並べる） */}
+      {daysView.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400">
           この期間にあなたのシフトはありません。
         </p>
       ) : (
         <ul className="space-y-2">
-          {byDate.map(([date, items]) => {
+          {daysView.map(({ date, planned, actual }) => {
             const past = date < tk;
             const isToday = date === tk;
             return (
@@ -402,7 +422,7 @@ export default function MyScheduleView() {
                   isToday
                     ? "border-slate-900 bg-white"
                     : past
-                    ? "border-slate-100 bg-slate-50 opacity-60"
+                    ? "border-slate-100 bg-slate-50"
                     : "border-slate-200 bg-white"
                 }`}
               >
@@ -417,27 +437,66 @@ export default function MyScheduleView() {
                   </span>
                 </div>
                 <div className="mt-1.5 space-y-1">
-                  {items.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center gap-2 text-sm text-slate-700"
-                    >
-                      <span className="font-medium">
-                        {timeLabel(s.start_time)}–{timeLabel(s.end_time)}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {hoursBetween(s.start_time, s.end_time)}h
-                      </span>
-                      {s.position && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                          {s.position}
+                  {/* 予定 */}
+                  {planned.length > 0
+                    ? planned.map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex items-center gap-2 text-sm text-slate-700"
+                        >
+                          <span className="w-9 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-slate-500">
+                            予定
+                          </span>
+                          <span className="font-medium">
+                            {timeLabel(s.start_time)}–{timeLabel(s.end_time)}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {hoursBetween(s.start_time, s.end_time)}h
+                          </span>
+                          {s.position && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                              {s.position}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    : actual.length > 0 && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-9 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-slate-500">
+                            予定
+                          </span>
+                          <span className="text-slate-400">なし</span>
+                        </div>
+                      )}
+                  {/* 実績 */}
+                  {actual.length > 0 ? (
+                    actual.map((a, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 text-sm text-slate-700"
+                      >
+                        <span className="w-9 shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-emerald-700">
+                          実績
                         </span>
-                      )}
-                      {s.note && (
-                        <span className="text-xs text-slate-400">/ {s.note}</span>
-                      )}
+                        <span className="font-medium">
+                          {clockLabel(a.clock_in)}–
+                          {a.clock_out ? clockLabel(a.clock_out) : "勤務中"}
+                        </span>
+                        {a.clock_out && (
+                          <span className="text-xs text-slate-400">
+                            {roundedClockedHours(a.clock_in, a.clock_out)}h
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  ) : past && planned.length > 0 ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-9 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-slate-400">
+                        実績
+                      </span>
+                      <span className="text-slate-400">未打刻</span>
                     </div>
-                  ))}
+                  ) : null}
                 </div>
               </li>
             );

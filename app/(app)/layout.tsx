@@ -3,7 +3,7 @@
 // この (app) グループの下に置いたページ（availability / my-schedule / schedule）が
 // 下タブを共有します。/login はこのグループの外に置く（ナビなし）。
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { getAuthContext } from "@/lib/auth";
 import AppNav from "@/components/AppNav";
 import SubmissionReminder, {
   type ReminderPeriod,
@@ -15,19 +15,8 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, role } = await getAuthContext();
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const role = profile?.role === "owner" ? "owner" : "employee";
 
   // 従業員のみ：受付中・締切前で未提出の期間をリマインド対象として算出
   let reminders: ReminderPeriod[] = [];

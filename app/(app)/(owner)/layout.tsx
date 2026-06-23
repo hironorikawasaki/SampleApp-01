@@ -5,26 +5,17 @@
 // サーバー側で役割を確認し、従業員は希望提出画面へリダイレクトする。
 // （(owner) はルートグループなので URL パスには影響しない）
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { getAuthContext } from "@/lib/auth";
 
 export default async function OwnerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // (app) レイアウトと同一リクエストなら getAuthContext は cache 済みで再実行されない
+  const { user, role } = await getAuthContext();
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "owner") redirect("/availability");
+  if (role !== "owner") redirect("/availability");
 
   return <>{children}</>;
 }

@@ -18,7 +18,7 @@ import {
   isoToDatetimeLocal,
   datetimeLocalToIso,
 } from "@/lib/shiftTime";
-import { clockedHours } from "@/lib/hours";
+import { roundedClockedHours } from "@/lib/hours";
 import CalendarPicker from "@/components/CalendarPicker";
 import Link from "next/link";
 
@@ -241,7 +241,7 @@ export default function OwnerTimecards() {
         r.employee_id,
         Math.round(
           ((m.get(r.employee_id) ?? 0) +
-            clockedHours(r.clock_in, r.clock_out)) *
+            roundedClockedHours(r.clock_in, r.clock_out)) *
             10
         ) / 10
       );
@@ -414,7 +414,7 @@ export default function OwnerTimecards() {
                 ))}
             </ul>
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-              出勤〜退勤の実時刻から算出（休憩は未対応）。給与計算は後フェーズで対応します。
+              15分丸め（出勤切上げ／退勤切捨て）で算出。休憩は未対応。給与計算は後フェーズで対応します。
             </p>
           </aside>
         </div>
@@ -442,7 +442,7 @@ function RecordRow({
         <span className="flex items-center gap-2">
           <span className="text-xs text-slate-400">
             {row.clock_out
-              ? `${clockedHours(row.clock_in, row.clock_out)}h`
+              ? `${roundedClockedHours(row.clock_in, row.clock_out)}h`
               : "勤務中"}
           </span>
           <button

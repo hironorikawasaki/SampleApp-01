@@ -32,7 +32,6 @@ export default function AppNav({ role }: { role: Role }) {
       : [
           { href: "/availability", label: "希望提出", icon: <CalendarIcon /> },
           { href: "/my-schedule", label: "シフト確認", icon: <CheckIcon /> },
-          { href: "/attendance", label: "出退勤", icon: <ClockIcon /> },
         ];
 
   async function signOut() {

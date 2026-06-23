@@ -20,7 +20,7 @@ import {
   relativeDay,
 } from "@/lib/shiftTime";
 import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
-import { clockedHours } from "@/lib/hours";
+import { roundedClockedHours } from "@/lib/hours";
 
 interface ShiftPeriod {
   id: string;
@@ -211,7 +211,7 @@ export default function MyScheduleView() {
         .filter(
           (a) => a.work_date >= period.start_date && a.work_date <= period.end_date
         )
-        .reduce((s, a) => s + clockedHours(a.clock_in, a.clock_out), 0)
+        .reduce((s, a) => s + roundedClockedHours(a.clock_in, a.clock_out), 0)
     );
   }, [attendance, period]);
   const currentYm = todayKey().slice(0, 7);
@@ -220,7 +220,7 @@ export default function MyScheduleView() {
       round1(
         attendance
           .filter((a) => a.work_date.slice(0, 7) === currentYm)
-          .reduce((s, a) => s + clockedHours(a.clock_in, a.clock_out), 0)
+          .reduce((s, a) => s + roundedClockedHours(a.clock_in, a.clock_out), 0)
       ),
     [attendance, currentYm]
   );

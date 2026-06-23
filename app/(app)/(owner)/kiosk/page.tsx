@@ -35,6 +35,7 @@ export default function Kiosk() {
   const [storeId, setStoreId] = useState<string | null>(null);
   const [emps, setEmps] = useState<Emp[]>([]);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<Emp | null>(null);
 
   // 店舗一覧（オーナーは全店舗閲覧可）。前回選択を localStorage で復元。
@@ -62,7 +63,8 @@ export default function Kiosk() {
   }, []);
 
   const loadStore = useCallback(async (sid: string) => {
-    const [{ data: mem }, { data: open }] = await Promise.all([
+    const today = businessDayKey(new Date());
+    const [{ data: mem }, { data: open }, { data: sched }] = await Promise.all([
       supabase
         .from("store_members")
         .select("profiles(id,full_name,is_active)")
@@ -72,6 +74,12 @@ export default function Kiosk() {
         .select("employee_id")
         .eq("store_id", sid)
         .is("clock_out", null),
+      // 当日(営業日)の出勤予定者＝確定シフトのある従業員
+      supabase
+        .from("confirmed_shifts")
+        .select("employee_id,shift_periods!inner(store_id)")
+        .eq("shift_periods.store_id", sid)
+        .eq("work_date", today),
     ]);
     const list = (mem ?? [])
       .map((m: any) => m.profiles)
@@ -80,6 +88,7 @@ export default function Kiosk() {
       .sort((a: Emp, b: Emp) => a.name.localeCompare(b.name));
     setEmps(list);
     setOpenIds(new Set((open ?? []).map((o) => o.employee_id)));
+    setScheduledIds(new Set((sched ?? []).map((s: any) => s.employee_id)));
   }, []);
 
   useEffect(() => {
@@ -108,6 +117,33 @@ export default function Kiosk() {
         店舗がありません。「店舗管理」で作成してください。
       </div>
     );
+
+  const scheduled = emps.filter((e) => scheduledIds.has(e.id));
+  const others = emps.filter((e) => !scheduledIds.has(e.id));
+  const renderEmp = (e: Emp) => {
+    const working = openIds.has(e.id);
+    return (
+      <button
+        key={e.id}
+        type="button"
+        onClick={() => setPicked(e)}
+        className={`flex flex-col items-center justify-center rounded-2xl border p-5 text-center transition ${
+          working
+            ? "border-emerald-300 bg-emerald-50 hover:border-emerald-400"
+            : "border-slate-200 bg-white hover:border-slate-400"
+        }`}
+      >
+        <span className="text-lg font-bold text-slate-900">{e.name}</span>
+        <span
+          className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+            working ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {working ? "出勤中" : "退勤中"}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -141,35 +177,27 @@ export default function Kiosk() {
           この店舗に在籍中の従業員がいません。
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {emps.map((e) => {
-            const working = openIds.has(e.id);
-            return (
-              <button
-                key={e.id}
-                type="button"
-                onClick={() => setPicked(e)}
-                className={`flex flex-col items-center justify-center rounded-2xl border p-5 text-center transition ${
-                  working
-                    ? "border-emerald-300 bg-emerald-50 hover:border-emerald-400"
-                    : "border-slate-200 bg-white hover:border-slate-400"
-                }`}
-              >
-                <span className="text-lg font-bold text-slate-900">
-                  {e.name}
-                </span>
-                <span
-                  className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    working
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {working ? "出勤中" : "退勤中"}
-                </span>
-              </button>
-            );
-          })}
+        <div className="space-y-6">
+          {scheduled.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-bold text-slate-700">
+                本日の出勤予定
+              </h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {scheduled.map(renderEmp)}
+              </div>
+            </section>
+          )}
+          {others.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-bold text-slate-700">
+                {scheduled.length > 0 ? "その他の在籍者" : "在籍者"}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {others.map(renderEmp)}
+              </div>
+            </section>
+          )}
         </div>
       )}
 

@@ -10,7 +10,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { businessDayKey, clockLabel } from "@/lib/shiftTime";
+import {
+  businessDayKey,
+  clockLabel,
+  WEEKDAYS,
+  mdLabel,
+  toKey,
+} from "@/lib/shiftTime";
 import { PageSkeleton } from "@/components/Skeleton";
 
 interface Store {
@@ -105,22 +111,23 @@ export default function Kiosk() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-2">
+      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">打刻</h1>
           <p className="text-sm text-slate-500">{storeName}</p>
+          <select
+            value={storeId ?? ""}
+            onChange={(e) => changeStore(e.target.value)}
+            className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium"
+          >
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={storeId ?? ""}
-          onChange={(e) => changeStore(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium"
-        >
-          {stores.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        <KioskClock />
       </header>
 
       {error && (
@@ -191,6 +198,36 @@ export default function Kiosk() {
             };
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// 現在日時のライブ表示。深夜帯は「営業日」も明示（打刻がどの営業日になるか）。
+function KioskClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const p = (n: number) => String(n).padStart(2, "0");
+  const dateStr = `${now.getMonth() + 1}月${now.getDate()}日(${
+    WEEKDAYS[now.getDay()]
+  })`;
+  const timeStr = `${p(now.getHours())}:${p(now.getMinutes())}:${p(
+    now.getSeconds()
+  )}`;
+  const biz = businessDayKey(now);
+  return (
+    <div className="text-right">
+      <div className="text-sm text-slate-500">{dateStr}</div>
+      <div className="text-3xl font-bold tabular-nums text-slate-900">
+        {timeStr}
+      </div>
+      {biz !== toKey(now) && (
+        <div className="mt-0.5 text-xs font-medium text-amber-600">
+          営業日：{mdLabel(biz)}
+        </div>
       )}
     </div>
   );

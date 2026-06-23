@@ -415,18 +415,51 @@ export default function MyScheduleView() {
           {daysView.map(({ date, planned, actual }) => {
             const past = date < tk;
             const isToday = date === tk;
+            const r1 = (n: number) => Math.round(n * 10) / 10;
+            const plannedHours = r1(
+              planned.reduce(
+                (s, p) => s + hoursBetween(p.start_time, p.end_time),
+                0
+              )
+            );
+            const actualHours = r1(
+              actual.reduce(
+                (s, a) => s + roundedClockedHours(a.clock_in, a.clock_out),
+                0
+              )
+            );
+            const actualComplete = actual.some((a) => a.clock_out);
+            const missing = past && planned.length > 0 && actual.length === 0;
+            const unplanned = planned.length === 0 && actual.length > 0;
+            const diff =
+              actualComplete && planned.length > 0
+                ? r1(actualHours - plannedHours)
+                : null;
+            let chip: { t: string; c: string } | null = null;
+            if (diff !== null) {
+              if (Math.abs(diff) < 0.25)
+                chip = { t: "予定どおり", c: "bg-emerald-100 text-emerald-700" };
+              else if (diff > 0)
+                chip = { t: `実績 +${diff}h`, c: "bg-amber-100 text-amber-800" };
+              else chip = { t: `実績 ${diff}h`, c: "bg-rose-100 text-rose-700" };
+            } else if (missing)
+              chip = { t: "未打刻", c: "bg-rose-100 text-rose-700" };
+            else if (unplanned)
+              chip = { t: "予定外", c: "bg-amber-100 text-amber-800" };
             return (
               <li
                 key={date}
                 className={`rounded-xl border px-4 py-3 ${
                   isToday
                     ? "border-slate-900 bg-white"
+                    : missing
+                    ? "border-rose-200 bg-rose-50/40"
                     : past
                     ? "border-slate-100 bg-slate-50"
                     : "border-slate-200 bg-white"
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-slate-800">
                     {fullDate(date)}
                     {isToday && (
@@ -435,6 +468,13 @@ export default function MyScheduleView() {
                       </span>
                     )}
                   </span>
+                  {chip && (
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.c}`}
+                    >
+                      {chip.t}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1.5 space-y-1">
                   {/* 予定 */}
@@ -465,7 +505,7 @@ export default function MyScheduleView() {
                           <span className="w-9 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-slate-500">
                             予定
                           </span>
-                          <span className="text-slate-400">なし</span>
+                          <span className="font-medium text-amber-700">なし</span>
                         </div>
                       )}
                   {/* 実績 */}
@@ -491,10 +531,10 @@ export default function MyScheduleView() {
                     ))
                   ) : past && planned.length > 0 ? (
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="w-9 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-slate-400">
+                      <span className="w-9 shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-rose-700">
                         実績
                       </span>
-                      <span className="text-slate-400">未打刻</span>
+                      <span className="font-medium text-rose-600">未打刻</span>
                     </div>
                   ) : null}
                 </div>

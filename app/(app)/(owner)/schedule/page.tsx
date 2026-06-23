@@ -25,6 +25,7 @@ import {
 } from "@/lib/shiftTime";
 import { monthlyHoursByEmployee, monthLabel, type ShiftHours } from "@/lib/hours";
 import CalendarPicker from "@/components/CalendarPicker";
+import { PageSkeleton } from "@/components/Skeleton";
 
 type PeriodStatus = "open" | "closed" | "published";
 type PreferenceType = "preferred" | "available" | "unavailable";
@@ -545,7 +546,7 @@ export default function OwnerScheduleBuilder() {
 
   // ---- 描画 --------------------------------------------------
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <PageSkeleton />;
   if (error && !period)
     return <div className="p-8 text-center text-rose-600">{error}</div>;
   if (!period)

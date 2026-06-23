@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { CalendarSkeleton } from "@/components/Skeleton";
 import { config } from "@/lib/config";
 import {
   WEEKDAYS,
@@ -239,11 +240,7 @@ export default function ShiftPreferenceCalendar() {
 
   // ---- 描画 --------------------------------------------------
   if (loading) {
-    return (
-      <div className="mx-auto max-w-md p-6 text-center text-slate-500">
-        読み込み中…
-      </div>
-    );
+    return <CalendarSkeleton />;
   }
 
   if (error && !period) {

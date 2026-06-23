@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
+import { CalendarSkeleton } from "@/components/Skeleton";
 
 interface Store {
   id: string;
@@ -124,7 +125,7 @@ export default function OwnerCalendar() {
   }
 
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <CalendarSkeleton />;
   if (error)
     return <div className="p-8 text-center text-rose-600">{error}</div>;
 

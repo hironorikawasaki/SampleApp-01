@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { PageSkeleton } from "@/components/Skeleton";
 
 interface Profile {
   id: string;
@@ -120,7 +121,7 @@ export default function EmployeeManager() {
   const inactive = useMemo(() => profiles.filter((p) => !p.is_active), [profiles]);
 
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <PageSkeleton />;
   if (error && profiles.length === 0)
     return <div className="p-8 text-center text-rose-600">{error}</div>;
 

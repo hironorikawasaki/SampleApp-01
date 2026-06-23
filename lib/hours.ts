@@ -48,3 +48,23 @@ export function clockedHours(
   if (!Number.isFinite(ms) || ms <= 0) return 0;
   return round1(ms / 3600000);
 }
+
+// 15分丸め後の実労働時間（給与・集計用）。
+//   出勤は切り上げ（次の15分）、退勤は切り捨て（前の15分）＝実働を控えめに算出。
+//   15分境界は分単位で世界共通（JST=+9:00も整合）なのでUTCエポックで丸めてよい。
+//   生の打刻は別途保持し、ここでは表示・集計時の丸め値のみを返す。
+const QUARTER_MS = 15 * 60 * 1000;
+export function roundedClockedHours(
+  clockIn: string,
+  clockOut: string | null
+): number {
+  if (!clockOut) return 0;
+  const inMs = new Date(clockIn).getTime();
+  const outMs = new Date(clockOut).getTime();
+  if (!Number.isFinite(inMs) || !Number.isFinite(outMs)) return 0;
+  const inR = Math.ceil(inMs / QUARTER_MS) * QUARTER_MS; // 出勤=切上げ
+  const outR = Math.floor(outMs / QUARTER_MS) * QUARTER_MS; // 退勤=切捨て
+  const ms = outR - inR;
+  if (ms <= 0) return 0;
+  return round1(ms / 3600000);
+}

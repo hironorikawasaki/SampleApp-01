@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { PageSkeleton } from "@/components/Skeleton";
 
 interface Store {
   id: string;
@@ -66,7 +67,7 @@ export default function StoreManager() {
   }
 
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <PageSkeleton />;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">

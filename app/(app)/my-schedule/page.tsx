@@ -22,6 +22,7 @@ import {
 } from "@/lib/shiftTime";
 import ShiftCalendar, { type CalendarShift } from "@/components/ShiftCalendar";
 import { roundedClockedHours } from "@/lib/hours";
+import { PageSkeleton } from "@/components/Skeleton";
 
 interface ShiftPeriod {
   id: string;
@@ -264,12 +265,7 @@ export default function MyScheduleView() {
   }, [shifts, attendance, period]);
 
   // ---- 描画 --------------------------------------------------
-  if (loading)
-    return (
-      <div className="mx-auto max-w-md p-6 text-center text-slate-500">
-        読み込み中…
-      </div>
-    );
+  if (loading) return <PageSkeleton />;
   if (error)
     return (
       <div className="mx-auto max-w-md p-6 text-center text-rose-600">

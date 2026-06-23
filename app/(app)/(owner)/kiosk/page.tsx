@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { businessDayKey, clockLabel } from "@/lib/shiftTime";
+import { PageSkeleton } from "@/components/Skeleton";
 
 interface Store {
   id: string;
@@ -94,7 +95,7 @@ export default function Kiosk() {
   );
 
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <PageSkeleton />;
   if (stores.length === 0)
     return (
       <div className="mx-auto max-w-lg px-4 py-10 text-center text-slate-500">

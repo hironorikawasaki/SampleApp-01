@@ -21,6 +21,7 @@ import {
 import { roundedClockedHours } from "@/lib/hours";
 import CalendarPicker from "@/components/CalendarPicker";
 import Link from "next/link";
+import { PageSkeleton } from "@/components/Skeleton";
 
 interface Profile {
   id: string;
@@ -250,7 +251,7 @@ export default function OwnerTimecards() {
   }, [records]);
 
   if (loading)
-    return <div className="p-8 text-center text-slate-500">読み込み中…</div>;
+    return <PageSkeleton />;
   if (error && periods.length === 0)
     return <div className="p-8 text-center text-rose-600">{error}</div>;
 

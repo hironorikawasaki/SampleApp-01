@@ -29,3 +29,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# 作業用シード（コミットしない）
+scripts/seed-june.mjs

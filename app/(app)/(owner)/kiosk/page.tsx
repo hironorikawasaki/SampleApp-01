@@ -9,6 +9,7 @@
 // =============================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   businessDayKey,
@@ -37,6 +38,7 @@ export default function Kiosk() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<Emp | null>(null);
+  const [showExit, setShowExit] = useState(false);
 
   // 店舗一覧（オーナーは全店舗閲覧可）。前回選択を localStorage で復元。
   useEffect(() => {
@@ -162,6 +164,15 @@ export default function Kiosk() {
               </option>
             ))}
           </select>
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowExit(true)}
+              className="mt-2 text-xs text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline"
+            >
+              🔒 管理メニュー
+            </button>
+          </div>
         </div>
         <KioskClock />
       </header>
@@ -227,6 +238,86 @@ export default function Kiosk() {
           }}
         />
       )}
+
+      {showExit && <ExitGate onClose={() => setShowExit(false)} />}
+    </div>
+  );
+}
+
+// キオスクを抜けて管理画面に戻るゲート。オーナーのパスワード再認証を要求し、
+// 店舗据え置きのPadから無認証でオーナー機能に入れないようにする。
+function ExitGate({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function unlock() {
+    setBusy(true);
+    setErr(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const email = session?.user?.email;
+    if (!email) {
+      setBusy(false);
+      setErr("セッションを取得できません。再ログインしてください。");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pw,
+    });
+    setBusy(false);
+    if (error) {
+      setErr("パスワードが正しくありません。");
+      setPw("");
+      return;
+    }
+    router.push("/timecards");
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">管理メニュー</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"
+            aria-label="閉じる"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="mb-3 text-sm text-slate-500">
+          打刻モードを終了して管理画面に戻ります。オーナーのパスワードを入力してください。
+        </p>
+        <input
+          type="password"
+          value={pw}
+          onChange={(e) => {
+            setPw(e.target.value);
+            setErr(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && pw && !busy) unlock();
+          }}
+          placeholder="パスワード"
+          autoFocus
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+        />
+        {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+        <button
+          type="button"
+          onClick={unlock}
+          disabled={busy || !pw}
+          className="mt-3 w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          {busy ? "確認中…" : "解除して管理画面へ"}
+        </button>
+      </div>
     </div>
   );
 }

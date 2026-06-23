@@ -20,6 +20,10 @@ export default function AppNav({ role }: { role: Role }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // キオスク（店舗Pad）ではオーナー機能への動線を断つためナビを出さない。
+  // 解除はキオスク画面の「管理メニュー」（オーナーのパスワード再認証）から。
+  if (pathname.startsWith("/kiosk")) return null;
+
   const items: Item[] =
     role === "owner"
       ? [

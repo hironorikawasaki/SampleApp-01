@@ -37,18 +37,6 @@ export function monthLabel(ym: string): string {
   return `${Number(ym.slice(5, 7))}月`;
 }
 
-// 打刻（実時刻 timestamptz）からの実労働時間。退勤前(null)や不正は 0。0.1h 単位。
-// 実時刻どうしの差なので日跨ぎの補正は不要。
-export function clockedHours(
-  clockIn: string,
-  clockOut: string | null
-): number {
-  if (!clockOut) return 0;
-  const ms = new Date(clockOut).getTime() - new Date(clockIn).getTime();
-  if (!Number.isFinite(ms) || ms <= 0) return 0;
-  return round1(ms / 3600000);
-}
-
 // 15分丸め後の実労働時間（給与・集計用）。
 //   出勤は切り上げ（次の15分）、退勤は切り捨て（前の15分）＝実働を控えめに算出。
 //   15分境界は分単位で世界共通（JST=+9:00も整合）なのでUTCエポックで丸めてよい。

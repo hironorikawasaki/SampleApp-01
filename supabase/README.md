@@ -12,6 +12,7 @@
 | 6 | `0006_attendance.sql` | 実績勤怠（出退勤の打刻）＋RLS＋改ざん防止トリガー |
 | 7 | `0007_calendar_foundation.sql` | 日別備考 `day_notes` ／同僚の確定シフト閲覧RLS（公開済み×同店舗）／氏名ビュー `coworker_profiles` |
 | 8 | `0008_kiosk_punch.sql` | 店舗キオスク打刻：`profiles.pin` 追加＋`kiosk_punch` RPC（オーナー端末＋PIN照合で出勤/退勤） |
+| 9 | `0009_kiosk_punch_fix.sql` | `kiosk_punch` の営業日跨ぎ対策（未退勤判定を当日に限定） |
 
 ## 冪等（idempotent）
 

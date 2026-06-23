@@ -1,5 +1,6 @@
 // app/(app)/(owner)/layout.tsx
-// オーナー専用ページ（/schedule・/employees・/stores）のサーバー側ガード。
+// オーナー専用ページ（/schedule・/calendar・/timecards・/kiosk・/employees・
+// /stores など (owner) 配下すべて）のサーバー側ガード。
 // RLS でデータは保護されるが、非オーナーが画面の枠だけ開けてしまうのを防ぐため、
 // サーバー側で役割を確認し、従業員は希望提出画面へリダイレクトする。
 // （(owner) はルートグループなので URL パスには影響しない）

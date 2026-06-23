@@ -69,6 +69,37 @@ export function fromKey(key: string): Date {
 export function todayKey(): string {
   return toKey(new Date());
 }
+// 月カレンダーの週グリッド（日曜始まり）。各セルは {key, inMonth, day}。
+// ShiftCalendar / CalendarPicker で共用する。
+export function monthWeeks(
+  anchor: Date
+): { key: string; inMonth: boolean; day: number }[][] {
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const gridStart = new Date(first);
+  gridStart.setDate(1 - first.getDay());
+  const gridEnd = new Date(last);
+  gridEnd.setDate(last.getDate() + (6 - last.getDay()));
+
+  const weeks: { key: string; inMonth: boolean; day: number }[][] = [];
+  const cur = new Date(gridStart);
+  while (cur <= gridEnd) {
+    const row: { key: string; inMonth: boolean; day: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      row.push({
+        key: toKey(cur),
+        inMonth: cur.getMonth() === month,
+        day: cur.getDate(),
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(row);
+  }
+  return weeks;
+}
+
 // 'M/D(曜)' 形式
 export function mdLabel(key: string): string {
   const d = fromKey(key);

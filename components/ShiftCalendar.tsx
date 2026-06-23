@@ -12,11 +12,10 @@
 import { useMemo, useState } from "react";
 import {
   WEEKDAYS,
-  fromKey,
-  toKey,
   timeLabel,
   hoursBetween,
   mdLabel,
+  monthWeeks,
 } from "@/lib/shiftTime";
 
 export interface CalendarShift {
@@ -28,33 +27,6 @@ export interface CalendarShift {
 }
 
 type HalfMode = "full" | "first" | "second";
-
-function buildWeeks(anchor: Date) {
-  const year = anchor.getFullYear();
-  const month = anchor.getMonth();
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
-  const gridStart = new Date(first);
-  gridStart.setDate(1 - first.getDay());
-  const gridEnd = new Date(last);
-  gridEnd.setDate(last.getDate() + (6 - last.getDay()));
-
-  const weeks: { key: string; inMonth: boolean; day: number }[][] = [];
-  const cur = new Date(gridStart);
-  while (cur <= gridEnd) {
-    const row: { key: string; inMonth: boolean; day: number }[] = [];
-    for (let i = 0; i < 7; i++) {
-      row.push({
-        key: toKey(cur),
-        inMonth: cur.getMonth() === month,
-        day: cur.getDate(),
-      });
-      cur.setDate(cur.getDate() + 1);
-    }
-    weeks.push(row);
-  }
-  return weeks;
-}
 
 function inHalf(day: number, half: HalfMode) {
   if (half === "first") return day <= 15;
@@ -110,7 +82,7 @@ export default function ShiftCalendar({
     return m;
   }, [shifts, nameOf]);
 
-  const weeks = useMemo(() => buildWeeks(anchor), [anchor]);
+  const weeks = useMemo(() => monthWeeks(anchor), [anchor]);
   const monthLabel = `${anchor.getFullYear()}年${anchor.getMonth() + 1}月`;
 
   function shiftMonth(delta: number) {

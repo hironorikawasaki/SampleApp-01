@@ -3,6 +3,7 @@ import {
   monthlyHoursByEmployee,
   monthLabel,
   clockedHours,
+  roundedClockedHours,
   type ShiftHours,
 } from "./hours";
 
@@ -80,5 +81,35 @@ describe("clockedHours", () => {
     expect(
       clockedHours("2026-06-19T23:00:00Z", "2026-06-19T20:00:00Z")
     ).toBe(0);
+  });
+});
+
+describe("roundedClockedHours（出勤切上/退勤切捨・15分）", () => {
+  it("出勤20:07→20:15, 退勤翌02:58→翌02:45 = 6.5h", () => {
+    expect(
+      roundedClockedHours(
+        "2026-06-10T20:07:00+09:00",
+        "2026-06-11T02:58:00+09:00"
+      )
+    ).toBe(6.5);
+  });
+  it("ちょうど15分境界はそのまま（20:00→翌03:00 = 7h）", () => {
+    expect(
+      roundedClockedHours(
+        "2026-06-10T20:00:00+09:00",
+        "2026-06-11T03:00:00+09:00"
+      )
+    ).toBe(7);
+  });
+  it("丸めで0以下になる短時間は 0（20:05→20:14 → 20:15〜20:00）", () => {
+    expect(
+      roundedClockedHours(
+        "2026-06-10T20:05:00+09:00",
+        "2026-06-10T20:14:00+09:00"
+      )
+    ).toBe(0);
+  });
+  it("退勤前(null)は 0", () => {
+    expect(roundedClockedHours("2026-06-10T20:00:00+09:00", null)).toBe(0);
   });
 });

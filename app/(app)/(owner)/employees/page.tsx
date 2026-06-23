@@ -20,6 +20,7 @@ interface Profile {
   max_hours_per_month: number | null;
   phone: string | null;
   is_active: boolean;
+  pin: string | null;
 }
 interface Store {
   id: string;
@@ -308,6 +309,29 @@ function Row({
               </label>
             );
           })}
+        </div>
+      )}
+
+      {/* 打刻PIN（店舗Padキオスクでの出退勤用） */}
+      {p.role === "employee" && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+          <span className="text-xs font-medium text-slate-500">打刻PIN</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            defaultValue={p.pin ?? ""}
+            onBlur={(e) => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+              const next = v === "" ? null : v;
+              if (next !== (p.pin ?? null)) onUpdate(p.id, { pin: next });
+            }}
+            placeholder="4桁"
+            className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm tracking-[0.3em]"
+          />
+          <span className="text-[11px] text-slate-400">
+            店舗Padでの出退勤に使用
+          </span>
         </div>
       )}
     </li>
